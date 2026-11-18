@@ -4,3 +4,9 @@ __pycache__/
 api/instance/
 *.sqlite3
 *.sqlite3-*
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+key.properties

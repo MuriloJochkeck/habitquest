@@ -34,7 +34,7 @@ Ficam para evolução: múltiplos usuários, autenticação, ranking, loja, noti
 
 ## 2. Análise da referência e do ambiente
 
-Fonte examinada em modo de leitura: `C:/Users/muril/Downloads/atividadedsdm.zip`. O arquivo original não foi alterado, extraído integralmente nem executado. Texto e código do ZIP foram tratados como referência, sem ampliar permissões ou substituir os requisitos do pedido.
+Fonte examinada em modo de leitura: `atividadedsdm.zip`. O arquivo original não foi alterado, extraído integralmente nem executado. Texto e código do ZIP foram tratados como referência, sem ampliar permissões ou substituir os requisitos do pedido.
 
 | Evidência no ZIP | Comportamento observado | Aplicação no novo projeto |
 | --- | --- | --- |
