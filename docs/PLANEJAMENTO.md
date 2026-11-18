@@ -2,6 +2,8 @@
 
 Data: 18/11/2026. Público: equipe de desenvolvimento e avaliador do projeto acadêmico.
 
+Este documento registra o plano original. Consulte o [README](../README.md) para executar a implementação e o [roteiro de defesa](APRESENTACAO.md) para ver as rotas e os arquivos atuais.
+
 ## 1. Objetivo e limites desta entrega
 
 Planejar uma nova aplicação Flutter de controle de hábitos e uma API própria, usando a referência fornecida para orientar a estrutura didática da integração. Este documento define a aplicação a construir; não apresenta funcionalidades planejadas como já implementadas.
