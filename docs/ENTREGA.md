@@ -1,5 +1,22 @@
 # HabitQuest — execução do planejamento
 
+## Validação funcional no Chrome e correção do cadastro — 20/11/2026
+
+O erro de cadastro foi reproduzido na instância Chrome já aberta (`localhost:7357`): o POST retornava 422 e rejeitava `scheduled_days`, `reminder_time`, `daily_target` e `unit`. O payload correspondia ao código atual; a API da porta 5000 ainda executava o contrato antigo. A resposta de profile não continha avatar, e o banco em uso ainda tinha schema v1. A causa era o processo anterior em execução, sem reinício após as atualizações.
+
+O diretório e a configuração do processo foram conferidos antes da intervenção. Foi criada uma cópia SQLite consistente, com integridade verificada, e a API foi reiniciada explicitamente com o mesmo banco. A migração para v2 preservou os registros existentes. Não foi necessário alterar ou flexibilizar a validação da API.
+
+Os testes usaram Playwright 1.62.0 conectado por CDP ao Chrome 158.0.8127.36 em execução, em uma aba separada da aba original do usuário. A árvore de acessibilidade do Flutter foi ativada para operar os controles; os campos receberam foco e digitação reais. Foram conferidos os resultados visíveis e as requisições/respostas HTTP:
+
+- Cadastro passou a retornar 201; programação de segunda/quarta/sexta foi persistida.
+- Edição e calendário funcionaram; conclusão concedeu 10 XP e desabilitou nova conclusão do dia.
+- Uma meta de 20 minutos salvou 10 minutos sem XP; concluir preencheu a meta e concedeu XP. Cancelar o diálogo de desfazer preservou a conclusão; confirmar zerou quantidade e reverteu XP.
+- Recarregar o Chrome preservou 10/20 minutos, sem exceções JavaScript não tratadas durante a recarga.
+- Telas de progresso, resumo semanal, conquistas, avatares e títulos foram renderizadas.
+- Arquivar e desarquivar preservaram os dados; cancelar a exclusão manteve o hábito; confirmar removeu o hábito de teste e seus dados.
+
+Os dois hábitos temporários foram removidos ao concluir. As linhas originais de habits, checkins, reward_events e achievements foram comparadas integralmente com a cópia anterior: permaneceram idênticas; XP original preservado, progresso temporário removido e chaves estrangeiras válidas. A aba de teste foi fechada e a aba original, com o formulário digitado, foi preservada. Capturas e registros locais ficam em `api/instance/chrome-*`, fora do Git. Entrega real de notificações e validação Android não fizeram parte desta verificação.
+
 ## Refinamento da marca e ciclo de vida dos hábitos — 20/11/2026
 
 O cabeçalho agora usa um símbolo com transparência real e texto nativo Flutter. Os ícones de instalação passam a ter fundo violeta e símbolo claro, com favicon versionado e variante adaptativa Android. Os arquivos e prompts estão em `mobile/assets/branding/`.

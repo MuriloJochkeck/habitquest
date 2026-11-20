@@ -105,4 +105,12 @@ O cabeçalho combina `brand-mark.png` (símbolo com transparência real) com tex
 
 O [contrato OpenAPI](docs/openapi.json) descreve os campos e erros atuais. Consulte a [situação da entrega](docs/ENTREGA.md) para a rastreabilidade dos requisitos e os limites de validação.
 
+## Cadastro retorna “Campo não permitido” após atualizar o app
+
+Se a resposta rejeitar `scheduled_days`, `reminder_time`, `daily_target` ou `unit`, confira se a API também foi reiniciada após atualizar o código. Um processo Flask iniciado antes da atualização pode continuar atendendo com o contrato antigo mesmo quando o app e os arquivos no disco já estão novos. Recarregar somente o Chrome não atualiza esse processo.
+
+Encerre a instância anterior da API e execute novamente o comando de inicialização em `api/`, usando o mesmo `HABITQUEST_DB` quando houver configuração personalizada. A migração aditiva ocorre na inicialização; faça uma cópia de um banco importante antes de atualizar. Só um servidor deve atender a porta 5000. A resposta atual de `GET /api/v1/profile` inclui `avatar`; uma resposta sem esse campo indica que aquela instância ainda oferece o contrato anterior às metas por quantidade.
+
+Depois de atualizar o servidor, tente salvar novamente o formulário. Não é necessário apagar o banco nem remover os campos novos do cadastro. A verificação no Chrome e a correção de uma instância antiga estão registradas em [ENTREGA.md](docs/ENTREGA.md).
+
 Veja o [roteiro de demonstração e defesa](docs/APRESENTACAO.md) para os endpoints, o caminho completo de uma requisição e um exemplo de como comprovar a persistência e a proteção contra duplicidade. A [análise inicial](docs/PLANEJAMENTO.md) registra as premissas e decisões tomadas antes da implementação.
