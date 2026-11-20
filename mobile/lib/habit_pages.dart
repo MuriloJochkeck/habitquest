@@ -670,6 +670,61 @@ class _HabitDetailState extends State<HabitDetail> {
     }
   }
 
+  Future<void> _manageArchived({required bool delete}) async {
+    if (_archiving) return;
+    if (delete) {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          icon: Icon(
+            Icons.delete_forever_outlined,
+            color: Theme.of(context).colorScheme.error,
+          ),
+          title: const Text('Excluir hábito permanentemente?'),
+          content: Text(
+            '“${widget.habit.name}”, todo o histórico, quantidades, XP e conquistas desse hábito serão excluídos. Seu nível pode diminuir. Esta ação não pode ser desfeita.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancelar'),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error,
+                foregroundColor: Theme.of(context).colorScheme.onError,
+              ),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Excluir tudo'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+    }
+    if (!mounted) return;
+    setState(() => _archiving = true);
+    final Future<String?> result;
+    if (delete) {
+      final event = HabitDeleteRequested(widget.habit.id);
+      unawaited(widget.bloc.add(event));
+      result = event.result.future;
+    } else {
+      final event = HabitRestoreRequested(widget.habit.id);
+      unawaited(widget.bloc.add(event));
+      result = event.result.future;
+    }
+    final error = await result;
+    if (!mounted) return;
+    if (error == null) {
+      Navigator.pop(context, true);
+    } else {
+      setState(() => _archiving = false);
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Detalhes do hábito')),
@@ -700,6 +755,53 @@ class _HabitDetailState extends State<HabitDetail> {
               children: [
                 PageHeading(habit.name),
                 if (habit.description.isNotEmpty) Text(habit.description),
+                if (habit.archived) ...[
+                  const SizedBox(height: 12),
+                  Card(
+                    elevation: 0,
+                    color: Theme.of(context).colorScheme.surfaceContainerLow,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const Text(
+                            'Hábito arquivado',
+                            style: TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                          const Text(
+                            'Volte a praticar preservando seus dados ou exclua o hábito permanentemente.',
+                          ),
+                          const SizedBox(height: 12),
+                          FilledButton.tonalIcon(
+                            onPressed: _archiving
+                                ? null
+                                : () => _manageArchived(delete: false),
+                            icon: const Icon(Icons.unarchive_outlined),
+                            label: const Text('Desarquivar hábito'),
+                          ),
+                          TextButton.icon(
+                            style: TextButton.styleFrom(
+                              foregroundColor: Theme.of(context)
+                                  .colorScheme
+                                  .error,
+                            ),
+                            onPressed: _archiving
+                                ? null
+                                : () => _manageArchived(delete: true),
+                            icon: const Icon(Icons.delete_forever_outlined),
+                            label: const Text('Excluir permanentemente'),
+                          ),
+                          if (_archiving)
+                            const LinearProgressIndicator(
+                              semanticsLabel: 'Atualizando hábito',
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 Text('${habit.count} de ${habit.target} dias nesta semana'),
                 Text('Sequência atual: ${habit.streak} dia(s)'),
                 Text(
@@ -903,16 +1005,24 @@ class _ArchivedPageState extends State<ArchivedPage> {
               Card(
                 child: ListTile(
                   title: Text(habit.name),
+                  subtitle: const Text('Ver histórico, desarquivar ou excluir'),
                   trailing: const Icon(Icons.chevron_right),
-                  onTap: () => Navigator.of(context).push(
-                    MaterialPageRoute<void>(
-                      builder: (_) => HabitDetail(
-                        bloc: widget.bloc,
-                        habit: habit,
-                        date: widget.date,
+                  onTap: () async {
+                    await Navigator.of(context).push<bool>(
+                      MaterialPageRoute<bool>(
+                        builder: (_) => HabitDetail(
+                          bloc: widget.bloc,
+                          habit: habit,
+                          date: widget.date,
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                    if (mounted) {
+                      setState(() {
+                        _items = widget.bloc.repository.archived();
+                      });
+                    }
+                  },
                 ),
               ),
           ],

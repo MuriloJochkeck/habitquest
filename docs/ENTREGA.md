@@ -1,5 +1,13 @@
 # HabitQuest — execução do planejamento
 
+## Refinamento da marca e ciclo de vida dos hábitos — 20/11/2026
+
+O cabeçalho agora usa um símbolo com transparência real e texto nativo Flutter. Os ícones de instalação passam a ter fundo violeta e símbolo claro, com favicon versionado e variante adaptativa Android. Os arquivos e prompts estão em `mobile/assets/branding/`.
+
+Em Progresso → Hábitos arquivados, o detalhe oferece **Desarquivar hábito**, preservando histórico/configurações/recompensas, e **Excluir permanentemente**, com confirmação explícita. A exclusão remove hábito, progresso parcial, realizações, eventos de XP e conquistas em uma transação; o nível e o resumo passam a refletir os dados restantes. Hábitos ativos não podem ser excluídos diretamente. Não foi necessária migração de schema. Após perda de resposta, o cliente reconcilia a operação por consulta, sem repetir automaticamente a escrita.
+
+Verificações desta etapa: **67 testes da API** e **27 testes Flutter** passaram; análise estática sem problemas e formatação verificada. A integração Windows com API/SQLite temporários passou, cobrindo arquivar, desarquivar preservando 20 minutos/60 XP e excluir removendo hábito/conquistas/XP. Testes da API verificam também preservação de outro hábito, reabertura e rollback de exclusão com falha. Nenhum hábito pessoal foi alterado. As builds Windows release e Web release passaram; o Web mantém o aviso já conhecido de fonte Cupertino ausente. A validação manual Chrome/Android, incluindo aparência do ícone adaptativo no launcher, segue com o usuário.
+
 ## Atualização de produto — 20/11/2026
 
 O usuário informou que concluiu a validação manual da versão anterior no Chrome. A ocorrência histórica de tela em branco abaixo não é mais tratada como bloqueio dessa versão. A validação manual da nova versão no Chrome e Android será feita pelo usuário; os registros antigos de build/execução não comprovam as novas funcionalidades.

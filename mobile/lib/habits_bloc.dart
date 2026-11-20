@@ -42,6 +42,18 @@ class HabitArchiveRequested extends HabitsEvent {
   final result = Completer<String?>();
 }
 
+class HabitRestoreRequested extends HabitsEvent {
+  HabitRestoreRequested(this.id);
+  final int id;
+  final result = Completer<String?>();
+}
+
+class HabitDeleteRequested extends HabitsEvent {
+  HabitDeleteRequested(this.id);
+  final int id;
+  final result = Completer<String?>();
+}
+
 class HabitsState {
   const HabitsState({
     this.dashboard,
@@ -80,6 +92,12 @@ class HabitsBloc {
         event.result.complete('Aguarde a operação em andamento.');
       }
       if (event is HabitArchiveRequested) {
+        event.result.complete('Aguarde a operação em andamento.');
+      }
+      if (event is HabitRestoreRequested) {
+        event.result.complete('Aguarde a operação em andamento.');
+      }
+      if (event is HabitDeleteRequested) {
         event.result.complete('Aguarde a operação em andamento.');
       }
       return;
@@ -134,6 +152,12 @@ class HabitsBloc {
         case HabitArchiveRequested(:final id):
           await repository.archive(id);
           notice = 'Hábito arquivado.';
+        case HabitRestoreRequested(:final id):
+          await repository.restore(id);
+          notice = 'Hábito restaurado para sua rotina.';
+        case HabitDeleteRequested(:final id):
+          await repository.delete(id);
+          notice = 'Hábito e todos os seus dados excluídos.';
       }
       try {
         final dashboard = await repository.dashboard();
@@ -161,6 +185,8 @@ class HabitsBloc {
       _running = false;
       if (event is HabitSaveRequested) event.result.complete(actionError);
       if (event is HabitArchiveRequested) event.result.complete(actionError);
+      if (event is HabitRestoreRequested) event.result.complete(actionError);
+      if (event is HabitDeleteRequested) event.result.complete(actionError);
       if (_refreshQueued && !_closed) {
         _refreshQueued = false;
         unawaited(add(const HabitsRequested()));

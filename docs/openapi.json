@@ -471,6 +471,63 @@
             }
           }
         }
+      },
+      "delete": {
+        "summary": "Excluir permanentemente hábito arquivado",
+        "operationId": "delete_habits_habit_id",
+        "description": "Remove em uma transação o hábito, suas quantidades diárias, realizações, eventos de XP e conquistas. XP total, nível e resumo passam a refletir apenas os hábitos restantes. Não exclui perfil nem dados de outros hábitos. Não há recuperação; um ID já excluído retorna 404.",
+        "responses": {
+          "200": {
+            "description": "Hábito e todos os dados associados excluídos permanentemente.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HabitDeleted"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Hábito não encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Banco indisponível; error.code = database_unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro inesperado; mensagem genérica, detalhes apenas no log local.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Hábito ativo; error.code = habit_active. Arquive antes de excluir.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/habits/{habit_id}/archive": {
@@ -922,6 +979,67 @@
             }
           }
         }
+      }
+    },
+    "/habits/{habit_id}/restore": {
+      "parameters": [
+        {
+          "name": "habit_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9223372036854775807
+          }
+        }
+      ],
+      "post": {
+        "summary": "Desarquivar hábito",
+        "operationId": "post_habits_habit_id_restore",
+        "responses": {
+          "200": {
+            "description": "Hábito ativo com histórico preservado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Habit"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Hábito não encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Banco indisponível; error.code = database_unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro inesperado; mensagem genérica, detalhes apenas no log local.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Idempotente: volta à lista ativa, preservando histórico, configurações, quantidades, XP e conquistas. O horário de lembrete volta a ser elegível para agendamento após atualizar o dashboard."
       }
     }
   },
@@ -1594,6 +1712,25 @@
         ],
         "additionalProperties": false,
         "description": "Realizações completas entre segunda e hoje, comparadas aos mesmos dias da semana anterior. Inclui histórico de hábitos arquivados. Empates no destaque usam o hábito mais antigo."
+      },
+      "HabitDeleted": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "deleted",
+          "id"
+        ],
+        "properties": {
+          "deleted": {
+            "type": "boolean",
+            "const": true
+          },
+          "id": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9223372036854775807
+          }
+        }
       }
     }
   },

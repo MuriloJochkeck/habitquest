@@ -197,6 +197,34 @@ def checkin_today(habit_id):
     return jsonify(outcome), 201 if outcome["created"] else 200
 
 
+@api.post("/habits/<int:habit_id>/restore")
+def restore_habit(habit_id):
+    db = connection()
+    with transaction(db, write=True):
+        if not habit_by_id(db, habit_id):
+            return not_found()
+        db.execute("UPDATE habits SET archived_at=NULL WHERE id=?", (habit_id,))
+        today, _ = clock()
+        return jsonify(habit_summary(db, habit_by_id(db, habit_id), today))
+
+
+@api.delete("/habits/<int:habit_id>")
+def delete_habit(habit_id):
+    db = connection()
+    with transaction(db, write=True):
+        habit = habit_by_id(db, habit_id)
+        if not habit:
+            return not_found()
+        if habit["archived_at"] is None:
+            return error("habit_active", "Arquive o hábito antes de excluir permanentemente.", 409)
+        # Every child belongs exclusively to this habit. Removing its reward
+        # events also removes its contribution to the score and level.
+        for table in ("daily_progress", "checkins", "reward_events", "achievements"):
+            db.execute(f"DELETE FROM {table} WHERE habit_id=?", (habit_id,))
+        db.execute("DELETE FROM habits WHERE id=?", (habit_id,))
+    return jsonify(deleted=True, id=habit_id)
+
+
 @api.get("/habits/<int:habit_id>/checkins")
 def history(habit_id):
     today, _ = clock()

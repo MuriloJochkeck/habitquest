@@ -17,6 +17,8 @@ Prefixo `/api/v1`. As rotas retornam JSON.
 | GET | `/habits/{id}` | Consulta o hábito e suas métricas |
 | PATCH | `/habits/{id}` | Edita nome, descrição, cor e ícone |
 | POST | `/habits/{id}/archive` | Arquiva o hábito e preserva seu histórico |
+| POST | `/habits/{id}/restore` | Desarquiva preservando histórico, metas, configurações e recompensas |
+| DELETE | `/habits/{id}` | Exclui permanentemente um hábito arquivado e todos os dados vinculados; ativo retorna 409 |
 | PUT | `/habits/{id}/checkins/today` | Registra hoje, retorna 201 se criou ou 200 se já existia |
 | GET | `/habits/{id}/checkins?from=AAAA-MM-DD&to=AAAA-MM-DD` | Lista realizações em um período inclusivo |
 | GET | `/dashboard` | Traz hábitos, data, XP, nível e conquistas |
@@ -44,10 +46,10 @@ Para meta de um dia, o primeiro PUT retorna 201, `created: true` e `awarded_xp: 
 3. Repita o PUT pelo terminal para mostrar que a pontuação permanece igual.
 4. Reinicie a API e atualize o app para demonstrar a persistência.
 5. Mostre o caminho do botão até a resposta da API nos arquivos acima.
-6. Em **Progresso**, mostre frequência semanal, semanas sem realização e semanas parciais. Em **Hábitos arquivados**, abra o histórico preservado. A aderência desconsidera semanas parciais e limita a contribuição de cada semana à meta.
+6. Em **Progresso**, mostre frequência semanal, semanas sem realização e semanas parciais. Em **Hábitos arquivados**, abra o histórico preservado e mostre as ações **Desarquivar hábito** e **Excluir permanentemente**. Use somente dados fictícios ao confirmar **Excluir tudo**: o hábito, registros, progresso parcial, XP e conquistas vinculados são removidos, podendo reduzir o nível. Desarquivar preserva os dados e devolve o hábito à rotina. A aderência desconsidera semanas parciais e limita a contribuição de cada semana à meta.
 7. Mostre o [contrato OpenAPI](openapi.json) e os [resultados da entrega](ENTREGA.md). A suíte integrada desktop comprova criação, realização, repetição sem XP adicional e reabertura após reiniciar o servidor.
 
-Limites para explicar: perfil local único sem login; meta não editável; somente registros do dia determinado pela API, sem remoção e sem lançamento retroativo. Se uma resposta de cadastro se perder, o formulário orienta conferir a lista antes de novo cadastro. Hospedagem pública, autenticação, sincronização offline e publicação nas lojas ficam para evolução.
+Limites para explicar: perfil local único sem login; metas e unidade não editáveis; somente registros do dia determinado pela API, com correção/desfazer de hoje e sem lançamento retroativo. A exclusão permanente exige arquivamento prévio e confirmação. Se uma resposta de cadastro se perder, o formulário orienta conferir a lista antes de novo cadastro. Hospedagem pública, autenticação, sincronização offline e publicação nas lojas ficam para evolução.
 
 ```powershell
 $base = 'http://localhost:5000/api/v1'

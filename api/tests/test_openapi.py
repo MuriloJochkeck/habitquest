@@ -118,6 +118,12 @@ def test_real_responses_match_documented_schemas(tmp_path):
     check("GET", "/achievements")
     check("POST", "/habits/1/archive", "/habits/{habit_id}/archive")
     check("PUT", "/habits/1/checkins/today", "/habits/{habit_id}/checkins/today", expected=409)
+    check("POST", "/habits/1/restore", "/habits/{habit_id}/restore")
+    active = check("DELETE", "/habits/1", "/habits/{habit_id}", expected=409)
+    assert active.json["error"]["code"] == "habit_active"
+    check("POST", "/habits/1/archive", "/habits/{habit_id}/archive")
+    check("DELETE", "/habits/1", "/habits/{habit_id}")
+    check("POST", "/habits/1/restore", "/habits/{habit_id}/restore", expected=404)
     check("GET", "/habits/999", "/habits/{habit_id}", expected=404)
     check("POST", "/habits", expected=422, json={"name": "", "weekly_target": 0})
     check("POST", "/habits", expected=400, data="{", content_type="application/json")

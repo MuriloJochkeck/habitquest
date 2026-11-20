@@ -9,6 +9,41 @@ import 'package:http/testing.dart';
 import 'fixtures.dart';
 
 void main() {
+  test('confirma exclusão após perder resposta sem repetir DELETE', () async {
+    final calls = <String>[];
+    final client = MockClient((request) async {
+      calls.add(request.method);
+      if (request.method == 'DELETE') {
+        throw http.ClientException('Resposta perdida');
+      }
+      return http.Response(
+        '{"error":{"code":"not_found","message":"Hábito não encontrado."}}',
+        404,
+        headers: {'content-type': 'application/json; charset=utf-8'},
+      );
+    });
+    addTearDown(client.close);
+    await HabitRepository('http://localhost', client: client).delete(1);
+    expect(calls, ['DELETE', 'GET']);
+  });
+
+  test(
+    'confirma desarquivamento após perder resposta sem repetir POST',
+    () async {
+      final calls = <String>[];
+      final client = MockClient((request) async {
+        calls.add(request.method);
+        if (request.method == 'POST') {
+          throw http.ClientException('Resposta perdida');
+        }
+        return http.Response(jsonEncode(habitFixture()), 200);
+      });
+      addTearDown(client.close);
+      await HabitRepository('http://localhost', client: client).restore(1);
+      expect(calls, ['POST', 'GET']);
+    },
+  );
+
   test(
     'decodifica frequência zero, contagem acima da meta e semana parcial',
     () async {

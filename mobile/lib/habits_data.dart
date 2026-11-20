@@ -217,6 +217,37 @@ class HabitRepository {
   Future<void> archive(int id) =>
       _request('POST', '/habits/$id/archive', (_) {});
 
+  Future<void> restore(int id) async {
+    try {
+      await _request('POST', '/habits/$id/restore', (_) {});
+    } on ApiFailure catch (failure) {
+      if (failure.code != null) rethrow;
+      // Uma resposta perdida pode esconder uma restauração já confirmada.
+      // Reconcilie por leitura antes de oferecer outra tentativa.
+      try {
+        if (!(await detail(id)).archived) return;
+      } on ApiFailure {
+        // Preserve a falha original quando a leitura também não confirma.
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> delete(int id) async {
+    try {
+      await _request('DELETE', '/habits/$id', (_) {});
+    } on ApiFailure catch (failure) {
+      if (failure.code == 'not_found') return;
+      if (failure.code != null) rethrow;
+      try {
+        await detail(id);
+      } on ApiFailure catch (confirmation) {
+        if (confirmation.code == 'not_found') return;
+      }
+      rethrow;
+    }
+  }
+
   Future<int> checkInToday(int id, String date, {int? quantity}) => _request(
     'PUT',
     '/habits/$id/checkins/today',

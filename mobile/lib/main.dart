@@ -236,12 +236,34 @@ class _QuestHomeState extends State<QuestHome> with WidgetsBindingObserver {
         final data = state.dashboard;
         return Scaffold(
           appBar: AppBar(
-            title: Image.asset(
-              'assets/branding/logo.png',
-              height: 44,
-              width: 190,
-              fit: BoxFit.cover,
-              semanticLabel: 'HabitQuest',
+            title: Semantics(
+              label: 'HabitQuest',
+              excludeSemantics: true,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Image.asset(
+                    'assets/branding/brand-mark.png',
+                    width: 34,
+                    height: 34,
+                  ),
+                  const SizedBox(width: 8),
+                  const Flexible(
+                    child: Text(
+                      'HabitQuest',
+                      maxLines: 1,
+                      overflow: TextOverflow.fade,
+                      softWrap: false,
+                      style: TextStyle(
+                        color: ink,
+                        fontSize: 23,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.8,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
             actions: [
               IconButton(

@@ -191,5 +191,70 @@ void main() {
     expect(find.text('Concluído hoje'), findsOneWidget);
     expect(find.textContaining('60 XP no total'), findsOneWidget);
     expect(tester.takeException(), isNull);
+
+    Future<void> reveal(String label) async {
+      await tester.scrollUntilVisible(
+        find.text(label).hitTestable(),
+        120,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> archive() async {
+      await tester.drag(find.byType(ListView).first, const Offset(0, 1200));
+      await tester.pumpAndSettle();
+      await reveal('Leitura integrada');
+      await tester.tap(find.text('Leitura integrada'));
+      await tester.pumpAndSettle();
+      await reveal('Arquivar hábito');
+      await tester.tap(find.text('Arquivar hábito'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Arquivar'));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 5));
+    }
+
+    Future<void> openArchived() async {
+      await tester.tap(find.text('Progresso'));
+      await tester.pumpAndSettle();
+      await reveal('Hábitos arquivados');
+      await tester.tap(find.text('Hábitos arquivados'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Leitura integrada'));
+      await tester.pumpAndSettle();
+    }
+
+    await archive();
+    await openArchived();
+    await tester.tap(find.text('Desarquivar hábito'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nenhum hábito arquivado.'), findsOneWidget);
+    final restored = jsonDecode(
+      (await client.get(Uri.parse('$baseUrl/api/v1/dashboard'))).body,
+    ) as Map<String, dynamic>;
+    expect(restored['total_xp'], 60);
+    expect((restored['habits'] as List).single['today_quantity'], 20);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    await archive();
+    await openArchived();
+    await tester.tap(find.text('Excluir permanentemente'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Excluir tudo'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nenhum hábito arquivado.'), findsOneWidget);
+    final removed = jsonDecode(
+      (await client.get(Uri.parse('$baseUrl/api/v1/dashboard'))).body,
+    ) as Map<String, dynamic>;
+    expect(removed['total_xp'], 0);
+    expect(removed['habits'], isEmpty);
+    expect(removed['achievements'], isEmpty);
+    expect(
+      (await client.get(Uri.parse('$baseUrl/api/v1/habits/$id'))).statusCode,
+      404,
+    );
+    expect(tester.takeException(), isNull);
   });
 }

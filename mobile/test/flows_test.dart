@@ -155,6 +155,9 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('Leitura diária'));
       await tester.pumpAndSettle();
+      expect(find.text('Desarquivar hábito'), findsOneWidget);
+      expect(find.text('Excluir permanentemente'), findsOneWidget);
+      await reveal(tester, find.text('1 realização(ões) no mês'));
       expect(find.text('1 realização(ões) no mês'), findsOneWidget);
       expect(find.text('Editar hábito'), findsNothing);
       expect(find.text('Arquivar hábito'), findsNothing);
