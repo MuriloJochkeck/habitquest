@@ -39,11 +39,15 @@ Para meta de um dia, o primeiro PUT retorna 201, `created: true` e `awarded_xp: 
 
 ## 5. Demonstração e defesa
 
-1. Inicie API e app conforme o [README](../README.md), usando um banco de demonstração.
+1. Inicie API e app conforme o [README](../README.md), usando um banco de demonstração. O comando `seed_demo.py --database instance/apresentacao.sqlite3` cria exemplos fictícios com cinco semanas de histórico e recusa sobrescrever arquivos existentes.
 2. Crie “Ler por 20 minutos” com meta semanal de um dia e toque em **Concluir hoje**. Mostre os 60 XP, a semana e as conquistas.
 3. Repita o PUT pelo terminal para mostrar que a pontuação permanece igual.
 4. Reinicie a API e atualize o app para demonstrar a persistência.
 5. Mostre o caminho do botão até a resposta da API nos arquivos acima.
+6. Em **Progresso**, mostre frequência semanal, semanas sem realização e semanas parciais. Em **Hábitos arquivados**, abra o histórico preservado. A aderência desconsidera semanas parciais e limita a contribuição de cada semana à meta.
+7. Mostre o [contrato OpenAPI](openapi.json) e os [resultados da entrega](ENTREGA.md). A suíte integrada desktop comprova criação, realização, repetição sem XP adicional e reabertura após reiniciar o servidor.
+
+Limites para explicar: perfil local único sem login; meta não editável; somente registros do dia determinado pela API, sem remoção e sem lançamento retroativo. Se uma resposta de cadastro se perder, o formulário orienta conferir a lista antes de novo cadastro. Hospedagem pública, autenticação, sincronização offline e publicação nas lojas ficam para evolução.
 
 ```powershell
 $base = 'http://localhost:5000/api/v1'

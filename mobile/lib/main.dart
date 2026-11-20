@@ -14,9 +14,13 @@ const paper = Color(0xfff8f7fc);
 
 void main() {
   const configured = String.fromEnvironment('API_BASE_URL');
-  final host = !kIsWeb && defaultTargetPlatform == TargetPlatform.android
-      ? '10.0.2.2'
-      : 'localhost';
+  final host = kIsWeb
+      ? 'localhost'
+      : switch (defaultTargetPlatform) {
+          TargetPlatform.android => '10.0.2.2',
+          TargetPlatform.windows => '127.0.0.1',
+          _ => 'localhost',
+        };
   runApp(
     HabitQuest(baseUrl: configured.isEmpty ? 'http://$host:5000' : configured),
   );
@@ -238,10 +242,17 @@ class _QuestHomeState extends State<QuestHome> with WidgetsBindingObserver {
         if (data.habits.isEmpty)
           const Text('Seu progresso aparece aqui quando você cria um hábito.'),
         for (final habit in data.habits)
-          HabitCard(
-            habit: habit,
-            weekStart: data.weekStart,
-            onOpen: () => _detail(habit, data.date),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              HabitCard(
+                habit: habit,
+                weekStart: data.weekStart,
+                onOpen: () => _detail(habit, data.date),
+              ),
+              WeeklyHistory(history: habit.weeklyHistory),
+              const SizedBox(height: 16),
+            ],
           ),
         OutlinedButton.icon(
           onPressed: () => Navigator.of(context).push(
@@ -268,7 +279,7 @@ class _QuestHomeState extends State<QuestHome> with WidgetsBindingObserver {
               ),
               title: Text(badge.title),
               subtitle: Text(
-                '${badge.habit} · ${badge.unlocked ? 'Desbloqueada' : badgeRequirement(badge.code)}',
+                '${badge.habit} · ${badge.unlocked ? 'Desbloqueada' : badge.requirement ?? badgeRequirement(badge.code)}',
               ),
             ),
           ),

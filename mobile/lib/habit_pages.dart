@@ -201,9 +201,13 @@ class HabitCard extends StatelessWidget {
 }
 
 class _DayChip extends StatelessWidget {
-  const _DayChip({required this.label, required this.checked});
+  const _DayChip({
+    required this.label,
+    required this.checked,
+    this.compact = false,
+  });
   final String label;
-  final bool checked;
+  final bool checked, compact;
 
   @override
   Widget build(BuildContext context) => Semantics(
@@ -215,11 +219,13 @@ class _DayChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(10),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 6),
+        padding: EdgeInsets.symmetric(horizontal: compact ? 2 : 7, vertical: 6),
         child: Text(
-          checked ? '✓ $label' : label,
+          checked && !compact ? '✓ $label' : label,
           style: TextStyle(
             fontSize: 12,
+            fontWeight: compact && checked ? FontWeight.w700 : null,
+            decoration: compact && checked ? TextDecoration.underline : null,
             color: checked ? const Color(0xff065f46) : const Color(0xff534563),
           ),
         ),
@@ -246,6 +252,7 @@ class _HabitFormState extends State<HabitForm> {
   late String _icon = widget.habit?.icon ?? 'spark';
   late String _color = widget.habit?.color ?? 'violet';
   bool _saving = false;
+  bool _confirmationUnknown = false;
   String? _error;
 
   @override
@@ -277,7 +284,10 @@ class _HabitFormState extends State<HabitForm> {
     }
     setState(() {
       _saving = false;
-      _error = result;
+      _confirmationUnknown = event.outcomeUnknown;
+      _error = event.outcomeUnknown
+          ? 'Não foi possível confirmar o cadastro. Confira na lista se o hábito foi criado antes de cadastrar novamente.'
+          : result;
     });
   }
 
@@ -329,10 +339,11 @@ class _HabitFormState extends State<HabitForm> {
                     ),
                   ),
                 ),
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
                   child: Text(
-                    'A meta vale desde a criação. Você pode registrar uma realização por dia.',
+                    'A meta integral vale desde a criação. A meta não pode ser alterada: para outra meta, arquive o hábito e crie outro. '
+                    'Você pode registrar somente hoje, uma vez por dia. Não é possível registrar dias anteriores nem remover realizações.',
                   ),
                 ),
                 DropdownButtonFormField<String>(
@@ -403,9 +414,25 @@ class _HabitFormState extends State<HabitForm> {
                     ),
                   ),
                 FilledButton(
-                  onPressed: _saving ? null : _save,
+                  onPressed: _saving || _confirmationUnknown ? null : _save,
                   child: Text(_saving ? 'Salvando…' : 'Salvar hábito'),
                 ),
+                if (_confirmationUnknown)
+                  TextButton(
+                    onPressed: () {
+                      unawaited(widget.bloc.add(const HabitsRequested()));
+                      final messenger = ScaffoldMessenger.of(context);
+                      Navigator.pop(context);
+                      messenger.showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Confira se o hábito aparece na lista antes de criar outro.',
+                          ),
+                        ),
+                      );
+                    },
+                    child: const Text('Conferir lista de hábitos'),
+                  ),
               ],
             ),
           ),
@@ -446,7 +473,9 @@ class _HabitDetailState extends State<HabitDetail> {
     return (habit, history);
   }
 
-  void _reload() => setState(() => _data = _load());
+  void _reload() => setState(() {
+    _data = _load();
+  });
 
   Future<void> _archive() async {
     final confirmed = await showDialog<bool>(
@@ -532,9 +561,12 @@ class _HabitDetailState extends State<HabitDetail> {
                         _reload();
                       },
                     ),
-                    Text(
-                      monthLabel,
-                      style: Theme.of(context).textTheme.titleMedium,
+                    Expanded(
+                      child: Text(
+                        monthLabel,
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
                     ),
                     IconButton(
                       tooltip: 'Mês seguinte',
@@ -558,14 +590,23 @@ class _HabitDetailState extends State<HabitDetail> {
                 ),
                 GridView.count(
                   crossAxisCount: 7,
+                  mainAxisExtent:
+                      MediaQuery.textScalerOf(context).scale(12) * 1.5 + 16,
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   mainAxisSpacing: 3,
                   crossAxisSpacing: 3,
                   children: [
                     for (final day in weekdays)
-                      Center(
-                        child: Text(day, style: const TextStyle(fontSize: 11)),
+                      Semantics(
+                        label: day,
+                        excludeSemantics: true,
+                        child: Center(
+                          child: Text(
+                            day.substring(0, 1),
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        ),
                       ),
                     for (var i = 1; i < monthStart.weekday; i++)
                       const SizedBox.shrink(),
@@ -573,6 +614,7 @@ class _HabitDetailState extends State<HabitDetail> {
                       Center(
                         child: _DayChip(
                           label: '$i',
+                          compact: true,
                           checked: days.contains(
                             isoDay(DateTime.utc(_month.year, _month.month, i)),
                           ),
@@ -581,6 +623,8 @@ class _HabitDetailState extends State<HabitDetail> {
                   ],
                 ),
                 Text('${days.length} realização(ões) no mês'),
+                const SizedBox(height: 16),
+                WeeklyHistory(history: habit.weeklyHistory),
                 if (!habit.archived) ...[
                   const SizedBox(height: 18),
                   FilledButton.tonal(
@@ -611,6 +655,31 @@ class _HabitDetailState extends State<HabitDetail> {
         ),
       ),
     ),
+  );
+}
+
+class WeeklyHistory extends StatelessWidget {
+  const WeeklyHistory({super.key, required this.history});
+  final List<WeeklyProgress> history;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      const Text(
+        'Frequência por semana',
+        style: TextStyle(fontWeight: FontWeight.w700),
+      ),
+      if (history.isEmpty) const Text('Nenhuma semana disponível.'),
+      for (final week in history)
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Text(
+            'Semana de ${displayDate(week.start)}: ${week.count} de ${week.target} dias'
+            '${week.complete ? '' : ' · semana parcial'}',
+          ),
+        ),
+    ],
   );
 }
 
@@ -659,8 +728,9 @@ class _ArchivedPageState extends State<ArchivedPage> {
           return Center(
             child: RetryPanel(
               error: snapshot.error,
-              retry: () =>
-                  setState(() => _items = widget.bloc.repository.archived()),
+              retry: () => setState(() {
+                _items = widget.bloc.repository.archived();
+              }),
             ),
           );
         }

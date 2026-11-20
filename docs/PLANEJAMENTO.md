@@ -4,6 +4,8 @@ Data: 18/11/2026. Público: equipe de desenvolvimento e avaliador do projeto aca
 
 Este documento registra o plano original. Consulte o [README](../README.md) para executar a implementação e o [roteiro de defesa](APRESENTACAO.md) para ver as rotas e os arquivos atuais.
 
+Atualização de execução: a implementação do MVP e as evidências verificadas estão em [ENTREGA.md](ENTREGA.md). As expressões de futuro abaixo preservam o planejamento original; não descrevem o estado atual do repositório.
+
 ## 1. Objetivo e limites desta entrega
 
 Planejar uma nova aplicação Flutter de controle de hábitos e uma API própria, usando a referência fornecida para orientar a estrutura didática da integração. Este documento define a aplicação a construir; não apresenta funcionalidades planejadas como já implementadas.

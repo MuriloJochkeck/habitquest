@@ -18,6 +18,10 @@ class Habit {
       adherence = (data['adherence'] as num?)?.toDouble(),
       completed = data['completed_today'] as bool,
       archived = data['archived_at'] != null,
+      weeklyHistory = (data['weekly_history'] as List? ?? [])
+          .cast<Json>()
+          .map(WeeklyProgress.fromJson)
+          .toList(),
       weekDays = List<String>.from(data['week_days'] as List);
 
   final int id, target, count, streak;
@@ -25,6 +29,18 @@ class Habit {
   final bool completed, archived;
   final double? adherence;
   final List<String> weekDays;
+  final List<WeeklyProgress> weeklyHistory;
+}
+
+class WeeklyProgress {
+  WeeklyProgress.fromJson(Json data)
+    : start = data['week_start'] as String,
+      count = data['weekly_count'] as int,
+      target = data['weekly_target'] as int,
+      complete = data['complete_week'] as bool;
+  final String start;
+  final int count, target;
+  final bool complete;
 }
 
 class Achievement {
@@ -32,10 +48,12 @@ class Achievement {
     : habit = data['habit_name'] as String,
       title = data['title'] as String,
       code = data['code'] as String,
+      requirement = data['requirement'] as String?,
       unlocked = data['unlocked_at'] != null;
 
   final String habit, title, code;
   final bool unlocked;
+  final String? requirement;
 }
 
 class Dashboard {
@@ -61,9 +79,10 @@ class Dashboard {
 }
 
 class ApiFailure implements Exception {
-  const ApiFailure(this.message, {this.code});
+  const ApiFailure(this.message, {this.code, this.outcomeUnknown = false});
   final String message;
   final String? code;
+  final bool outcomeUnknown;
 }
 
 class HabitRepository {
@@ -82,6 +101,7 @@ class HabitRepository {
     Json? body,
     String? date,
   }) async {
+    final uncertainCreation = method == 'POST' && path == '/habits';
     final request = http.Request(method, Uri.parse('$baseUrl/api/v1$path'));
     if (body != null) {
       request.headers['Content-Type'] = 'application/json';
@@ -94,7 +114,10 @@ class HabitRepository {
           .then(http.Response.fromStream)
           .timeout(const Duration(seconds: 10));
       if (response.statusCode >= 500) {
-        throw const ApiFailure('O serviço está indisponível. Tente novamente.');
+        throw ApiFailure(
+          'O serviço está indisponível. Tente novamente.',
+          outcomeUnknown: uncertainCreation,
+        );
       }
       final data = jsonDecode(utf8.decode(response.bodyBytes));
       if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -107,17 +130,25 @@ class HabitRepository {
       }
       return decode(data);
     } on TimeoutException {
-      throw const ApiFailure(
+      throw ApiFailure(
         'A API demorou para responder. Confira os dados antes de repetir.',
+        outcomeUnknown: uncertainCreation,
       );
     } on http.ClientException {
-      throw const ApiFailure(
+      throw ApiFailure(
         'Sem conexão com a API. Confira a rede e tente novamente.',
+        outcomeUnknown: uncertainCreation,
       );
     } on FormatException {
-      throw const ApiFailure('A API enviou uma resposta inválida.');
+      throw ApiFailure(
+        'A API enviou uma resposta inválida.',
+        outcomeUnknown: uncertainCreation,
+      );
     } on TypeError {
-      throw const ApiFailure('A API enviou dados em formato inesperado.');
+      throw ApiFailure(
+        'A API enviou dados em formato inesperado.',
+        outcomeUnknown: uncertainCreation,
+      );
     }
   }
 

@@ -1,0 +1,1213 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "HabitQuest API",
+    "version": "1.0.0",
+    "description": "API acadêmica local, perfil único fixo e sem autenticação. Datas diárias em America/Sao_Paulo; instantes em UTC. Erros em JSON. CORS limitado à origem HABITQUEST_WEB_ORIGIN (padrão http://localhost:7357), com preflight automático; não representa autenticação."
+  },
+  "servers": [
+    {
+      "url": "http://127.0.0.1:5000/api/v1"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "summary": "Verificar acesso ao banco",
+        "operationId": "get_health",
+        "responses": {
+          "200": {
+            "description": "Verificar acesso ao banco",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Banco indisponível; error.code = database_unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro inesperado; mensagem genérica, detalhes apenas no log local.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/profile": {
+      "get": {
+        "summary": "Consultar perfil local fixo",
+        "operationId": "get_profile",
+        "responses": {
+          "200": {
+            "description": "Consultar perfil local fixo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro inesperado; mensagem genérica, detalhes apenas no log local.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/habits": {
+      "get": {
+        "summary": "Listar hábitos",
+        "operationId": "get_habits",
+        "responses": {
+          "200": {
+            "description": "Listar hábitos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Habit"
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Filtro status inválido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Banco indisponível; error.code = database_unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro inesperado; mensagem genérica, detalhes apenas no log local.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "archived",
+                "all"
+              ],
+              "default": "active"
+            }
+          }
+        ]
+      },
+      "post": {
+        "summary": "Criar hábito",
+        "operationId": "post_habits",
+        "responses": {
+          "201": {
+            "description": "Criar hábito",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Habit"
+                }
+              }
+            },
+            "headers": {
+              "Location": {
+                "description": "Caminho relativo /api/v1/habits/{id} do hábito criado.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Campos inválidos ou protegidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Banco indisponível; error.code = database_unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro inesperado; mensagem genérica, detalhes apenas no log local.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON malformado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Corpo maior que 16384 bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type inadequado; envie application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HabitCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/habits/{habit_id}": {
+      "parameters": [
+        {
+          "name": "habit_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9223372036854775807
+          }
+        }
+      ],
+      "get": {
+        "summary": "Consultar hábito e progresso",
+        "operationId": "get_habits_habit_id",
+        "responses": {
+          "200": {
+            "description": "Consultar hábito e progresso",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Habit"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Hábito não encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Banco indisponível; error.code = database_unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro inesperado; mensagem genérica, detalhes apenas no log local.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Editar dados do hábito",
+        "operationId": "patch_habits_habit_id",
+        "responses": {
+          "200": {
+            "description": "Editar dados do hábito",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Habit"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Hábito não encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Campos inválidos; meta semanal imutável.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Banco indisponível; error.code = database_unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro inesperado; mensagem genérica, detalhes apenas no log local.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON malformado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Corpo maior que 16384 bytes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type inadequado; envie application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HabitUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/habits/{habit_id}/archive": {
+      "parameters": [
+        {
+          "name": "habit_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9223372036854775807
+          }
+        }
+      ],
+      "post": {
+        "summary": "Arquivar hábito",
+        "operationId": "post_habits_habit_id_archive",
+        "responses": {
+          "200": {
+            "description": "Arquivar hábito",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Habit"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Hábito não encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Banco indisponível; error.code = database_unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro inesperado; mensagem genérica, detalhes apenas no log local.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "description": "Idempotente: preserva data do primeiro arquivamento, histórico, XP e conquistas."
+      }
+    },
+    "/habits/{habit_id}/checkins/today": {
+      "parameters": [
+        {
+          "name": "habit_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9223372036854775807
+          }
+        }
+      ],
+      "put": {
+        "summary": "Registrar realização do dia",
+        "operationId": "put_habits_habit_id_checkins_today",
+        "responses": {
+          "201": {
+            "description": "Registrar realização do dia",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckinResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Hábito não encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "error.code = habit_archived ou day_changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Banco indisponível; error.code = database_unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro inesperado; mensagem genérica, detalhes apenas no log local.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Realização já existente; nenhum XP adicional.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckinResult"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Habit-Date",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "description": "Data exibida pelo dashboard. Se divergir do dia atual em São Paulo, retorna 409 day_changed sem gravar. Ausente: usa o dia atual do servidor."
+          }
+        ],
+        "description": "Sem corpo. Dia calculado pela API. 10 XP por registro e 50 XP adicionais ao cumprir a meta semanal pela primeira vez. Repetir no mesmo dia retorna 200, created=false e awarded_xp=0."
+      }
+    },
+    "/habits/{habit_id}/checkins": {
+      "parameters": [
+        {
+          "name": "habit_id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9223372036854775807
+          }
+        }
+      ],
+      "get": {
+        "summary": "Consultar histórico inclusivo",
+        "operationId": "get_habits_habit_id_checkins",
+        "responses": {
+          "200": {
+            "description": "Consultar histórico inclusivo",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Checkin"
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Hábito não encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Datas inválidas ou intervalo inválido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Banco indisponível; error.code = database_unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro inesperado; mensagem genérica, detalhes apenas no log local.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "description": "Padrão: hoje menos 29 dias."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "description": "Padrão: hoje."
+          }
+        ],
+        "description": "Ordem decrescente de local_date. Exige from <= to; no máximo 366 dias inclusivos (to - from < 366 dias). Datas canônicas YYYY-MM-DD."
+      }
+    },
+    "/dashboard": {
+      "get": {
+        "summary": "Consultar painel de hábitos ativos",
+        "operationId": "get_dashboard",
+        "responses": {
+          "200": {
+            "description": "Consultar painel de hábitos ativos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Dashboard"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Banco indisponível; error.code = database_unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro inesperado; mensagem genérica, detalhes apenas no log local.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/achievements": {
+      "get": {
+        "summary": "Consultar conquistas e requisitos",
+        "operationId": "get_achievements",
+        "responses": {
+          "200": {
+            "description": "Consultar conquistas e requisitos",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Achievement"
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Banco indisponível; error.code = database_unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro inesperado; mensagem genérica, detalhes apenas no log local.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HabitCreate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "Validado após remover espaços externos; não pode conter apenas espaços."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 280,
+            "default": ""
+          },
+          "icon": {
+            "type": "string",
+            "enum": [
+              "book",
+              "fitness",
+              "water",
+              "mind",
+              "spark"
+            ],
+            "default": "spark"
+          },
+          "color": {
+            "type": "string",
+            "enum": [
+              "violet",
+              "mint",
+              "amber",
+              "blue",
+              "rose"
+            ],
+            "default": "violet"
+          },
+          "weekly_target": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 7
+          }
+        },
+        "required": [
+          "name",
+          "weekly_target"
+        ],
+        "additionalProperties": false
+      },
+      "HabitUpdate": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "Validado após remover espaços externos; não pode conter apenas espaços."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 280,
+            "default": ""
+          },
+          "icon": {
+            "type": "string",
+            "enum": [
+              "book",
+              "fitness",
+              "water",
+              "mind",
+              "spark"
+            ],
+            "default": "spark"
+          },
+          "color": {
+            "type": "string",
+            "enum": [
+              "violet",
+              "mint",
+              "amber",
+              "blue",
+              "rose"
+            ],
+            "default": "violet"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      },
+      "WeeklyProgress": {
+        "type": "object",
+        "properties": {
+          "week_start": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "weekly_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
+          "weekly_target": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 7
+          },
+          "complete_week": {
+            "type": "boolean",
+            "description": "Semana completa elegível para aderência; exclui semanas parciais de criação, atual e arquivamento."
+          }
+        },
+        "required": [
+          "week_start",
+          "weekly_count",
+          "weekly_target",
+          "complete_week"
+        ],
+        "additionalProperties": false
+      },
+      "Habit": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "description": "Validado após remover espaços externos; não pode conter apenas espaços."
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 280
+          },
+          "icon": {
+            "type": "string",
+            "enum": [
+              "book",
+              "fitness",
+              "water",
+              "mind",
+              "spark"
+            ]
+          },
+          "color": {
+            "type": "string",
+            "enum": [
+              "violet",
+              "mint",
+              "amber",
+              "blue",
+              "rose"
+            ]
+          },
+          "weekly_target": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 7
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "archived_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          },
+          "completed_today": {
+            "type": "boolean"
+          },
+          "weekly_count": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
+          "week_days": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "maxItems": 7
+          },
+          "streak": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "adherence": {
+            "type": [
+              "number",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 1,
+            "description": "Taxa de todas as semanas completas elegíveis, não limitada às oito semanas exibidas. null se não há semana elegível."
+          },
+          "weekly_history": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/WeeklyProgress"
+            },
+            "maxItems": 8,
+            "description": "Até oito semanas recentes em ordem cronológica, incluindo semanas vazias e parciais; termina na semana de arquivamento."
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "icon",
+          "color",
+          "weekly_target",
+          "created_at",
+          "archived_at",
+          "completed_today",
+          "weekly_count",
+          "week_days",
+          "streak",
+          "adherence",
+          "weekly_history"
+        ],
+        "additionalProperties": false
+      },
+      "Achievement": {
+        "type": "object",
+        "properties": {
+          "habit_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "habit_name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string",
+            "enum": [
+              "first_checkin",
+              "first_weekly_goal",
+              "streak_7",
+              "streak_30"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "requirement": {
+            "type": "string"
+          },
+          "unlocked_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "habit_id",
+          "habit_name",
+          "code",
+          "title",
+          "requirement",
+          "unlocked_at"
+        ],
+        "additionalProperties": false
+      },
+      "Checkin": {
+        "type": "object",
+        "properties": {
+          "habit_id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "local_date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "habit_id",
+          "local_date",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "CheckinResult": {
+        "type": "object",
+        "properties": {
+          "checkin": {
+            "type": "object",
+            "properties": {
+              "habit_id": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "local_date": {
+                "type": "string",
+                "format": "date",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+              }
+            },
+            "required": [
+              "habit_id",
+              "local_date"
+            ],
+            "additionalProperties": false
+          },
+          "created": {
+            "type": "boolean"
+          },
+          "awarded_xp": {
+            "type": "integer",
+            "enum": [
+              0,
+              10,
+              60
+            ]
+          },
+          "progress": {
+            "type": "object",
+            "properties": {
+              "weekly_count": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 7
+              },
+              "weekly_target": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 7
+              },
+              "weekly_goal_met": {
+                "type": "boolean"
+              },
+              "total_xp": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "level": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "required": [
+              "weekly_count",
+              "weekly_target",
+              "weekly_goal_met",
+              "total_xp",
+              "level"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "checkin",
+          "created",
+          "awarded_xp",
+          "progress"
+        ],
+        "additionalProperties": false
+      },
+      "Dashboard": {
+        "type": "object",
+        "properties": {
+          "local_date": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "week_start": {
+            "type": "string",
+            "format": "date",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+          },
+          "habits": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Habit"
+            }
+          },
+          "achievements": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Achievement"
+            }
+          },
+          "total_xp": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "level": {
+            "type": "integer",
+            "minimum": 1
+          }
+        },
+        "required": [
+          "local_date",
+          "week_start",
+          "habits",
+          "achievements",
+          "total_xp",
+          "level"
+        ],
+        "additionalProperties": false
+      },
+      "Profile": {
+        "type": "object",
+        "properties": {
+          "display_name": {
+            "type": "string",
+            "const": "Explorador"
+          },
+          "timezone": {
+            "type": "string",
+            "const": "America/Sao_Paulo"
+          }
+        },
+        "required": [
+          "display_name",
+          "timezone"
+        ],
+        "additionalProperties": false
+      },
+      "Health": {
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "additionalProperties": false
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              },
+              "fields": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "code",
+              "message"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "error"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "externalDocs": {
+    "description": "Especificação OpenAPI 3.1.0",
+    "url": "https://spec.openapis.org/oas/v3.1.0.html"
+  }
+}

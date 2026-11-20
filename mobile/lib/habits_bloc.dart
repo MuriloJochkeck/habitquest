@@ -20,6 +20,7 @@ class HabitSaveRequested extends HabitsEvent {
   final Json fields;
   final int? id;
   final result = Completer<String?>();
+  bool outcomeUnknown = false;
 }
 
 class HabitArchiveRequested extends HabitsEvent {
@@ -113,6 +114,9 @@ class HabitsBloc {
         );
       }
     } on ApiFailure catch (failure) {
+      if (event is HabitSaveRequested) {
+        event.outcomeUnknown = failure.outcomeUnknown;
+      }
       actionError = failure.message;
       _emit(HabitsState(dashboard: previous, error: failure.message));
       if (failure.code == 'day_changed') _refreshQueued = true;

@@ -76,13 +76,25 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('1 dia(s)').last);
     await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Salvar hábito'));
+    await tester.scrollUntilVisible(
+      find.text('Salvar hábito'),
+      150,
+      scrollable: find
+          .descendant(
+            of: find.byType(ListView).last,
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
     await tester.tap(find.text('Salvar hábito'));
     await tester.pumpAndSettle();
     expect(find.text('Leitura'), findsOneWidget);
     expect(habit!['weekly_target'], 1);
 
-    await tester.scrollUntilVisible(find.text('Concluir hoje').hitTestable(), 75);
+    await tester.scrollUntilVisible(
+      find.text('Concluir hoje').hitTestable(),
+      75,
+    );
     await tester.tap(find.text('Concluir hoje'));
     await tester.pumpAndSettle();
     expect(find.text('Concluído hoje'), findsOneWidget);

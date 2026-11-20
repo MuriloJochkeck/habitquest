@@ -12,6 +12,12 @@ ACHIEVEMENTS = {
     "streak_7": "Sete dias de ritmo",
     "streak_30": "Trinta dias de ritmo",
 }
+REQUIREMENTS = {
+    "first_checkin": "Registre a primeira realização deste hábito.",
+    "first_weekly_goal": "Cumpra a meta semanal deste hábito pela primeira vez.",
+    "streak_7": "Realize este hábito por 7 dias consecutivos.",
+    "streak_30": "Realize este hábito por 30 dias consecutivos.",
+}
 
 
 def week_start(day):
@@ -48,12 +54,23 @@ def habit_summary(db, habit, today):
     end = min(start, week_start(archived)) if archived else start
     complete_weeks = max(0, (end - first_full).days // 7)
     attended = sum(min(count, target) for week, count in weekly.items() if first_full <= week < end)
+    last_week = min(start, week_start(archived)) if archived else start
+    first_week = max(week_start(created.date()), last_week - timedelta(weeks=7))
+    history = []
+    cursor = first_week
+    while cursor <= last_week:
+        history.append({
+            "week_start": cursor.isoformat(), "weekly_count": weekly[cursor],
+            "weekly_target": target, "complete_week": first_full <= cursor < end,
+        })
+        cursor += timedelta(weeks=1)
     habit.update(
         completed_today=today in days,
         weekly_count=weekly[start],
         week_days=[(start + DAY * i).isoformat() for i in range(7) if start + DAY * i in days],
         streak=0 if archived else streak(days, today),
         adherence=attended / (complete_weeks * target) if complete_weeks else None,
+        weekly_history=history,
     )
     return habit
 
@@ -71,7 +88,8 @@ def badges(db):
     return [
         {
             "habit_id": habit["id"], "habit_name": habit["name"], "code": code,
-            "title": title, "unlocked_at": earned.get((habit["id"], code)),
+            "title": title, "requirement": REQUIREMENTS[code],
+            "unlocked_at": earned.get((habit["id"], code)),
         }
         for habit in db.execute("SELECT id, name FROM habits ORDER BY id")
         for code, title in ACHIEVEMENTS.items()
