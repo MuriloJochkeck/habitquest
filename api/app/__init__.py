@@ -31,7 +31,7 @@ def create_app(config=None):
         response.vary.add("Origin")
         if request.headers.get("Origin") == app.config["WEB_ORIGIN"]:
             response.headers["Access-Control-Allow-Origin"] = app.config["WEB_ORIGIN"]
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, PUT, OPTIONS"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PATCH, PUT, DELETE, OPTIONS"
             response.headers["Access-Control-Allow-Headers"] = "Content-Type, X-Habit-Date"
         return response
 

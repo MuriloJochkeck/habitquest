@@ -86,6 +86,26 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('1 dia(s)').last);
     await tester.pumpAndSettle();
+    final quantityField = find.widgetWithText(
+      TextFormField,
+      'Quantidade para concluir o dia',
+    );
+    final unitField = find.widgetWithText(
+      TextFormField,
+      'Unidade (vez, minutos, copos…)',
+    );
+    await tester.scrollUntilVisible(
+      quantityField,
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.enterText(quantityField, '20');
+    await tester.scrollUntilVisible(
+      unitField,
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.enterText(unitField, 'minutos');
     await tester.scrollUntilVisible(
       find.text('Salvar hábito'),
       150,
@@ -118,6 +138,43 @@ void main() {
     );
     expect(repeat.statusCode, 200);
     expect(jsonDecode(repeat.body)['awarded_xp'], 0);
+
+    // Exercita as novas mutações pela interface com HTTP/SQLite reais.
+    await tester.pump(const Duration(seconds: 5));
+    await tester.scrollUntilVisible(
+      find.text('Desfazer registro de hoje').hitTestable(),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Desfazer registro de hoje'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Desfazer'));
+    await tester.pumpAndSettle();
+    expect(find.text('0 de 20 minutos hoje'), findsOneWidget);
+    expect(find.textContaining('0 XP no total'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.scrollUntilVisible(
+      find.text('Registrar quantidade').hitTestable(),
+      -100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Registrar quantidade'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextFormField), '10');
+    await tester.tap(find.text('Salvar progresso'));
+    await tester.pumpAndSettle();
+    expect(find.text('10 de 20 minutos hoje'), findsOneWidget);
+    expect(find.textContaining('0 XP no total'), findsOneWidget);
+    await tester.pump(const Duration(seconds: 5));
+    await tester.scrollUntilVisible(
+      find.text('Concluir hoje').hitTestable(),
+      100,
+      scrollable: find.byType(Scrollable).first,
+    );
+    await tester.tap(find.text('Concluir hoje'));
+    await tester.pumpAndSettle();
+    expect(find.text('20 de 20 minutos hoje'), findsOneWidget);
+    expect(find.textContaining('60 XP no total'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();

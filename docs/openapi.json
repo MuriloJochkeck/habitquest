@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "HabitQuest API",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "API acadêmica local, perfil único fixo e sem autenticação. Datas diárias em America/Sao_Paulo; instantes em UTC. Erros em JSON. CORS limitado à origem HABITQUEST_WEB_ORIGIN (padrão http://localhost:7357), com preflight automático; não representa autenticação."
   },
   "servers": [
@@ -66,6 +66,86 @@
           },
           "500": {
             "description": "Erro inesperado; mensagem genérica, detalhes apenas no log local.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "summary": "Selecionar avatar do perfil local",
+        "operationId": "patch_profile",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "avatar": {
+                    "type": "string",
+                    "enum": [
+                      "compass",
+                      "leaf",
+                      "flame"
+                    ]
+                  }
+                },
+                "required": [
+                  "avatar"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Avatar persistido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Avatar ou campos inválidos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON inválido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Envie application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Banco indisponível.",
             "content": {
               "application/json": {
                 "schema": {
@@ -468,7 +548,7 @@
         }
       ],
       "put": {
-        "summary": "Registrar realização do dia",
+        "summary": "Atualizar progresso absoluto de hoje",
         "operationId": "put_habits_habit_id_checkins_today",
         "responses": {
           "201": {
@@ -522,7 +602,128 @@
             }
           },
           "200": {
-            "description": "Realização já existente; nenhum XP adicional.",
+            "description": "Progresso atualizado ou conclusão já existente; nenhuma nova conclusão criada.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CheckinResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Quantidade inválida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "JSON inválido.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Envie application/json.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Habit-Date",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+            },
+            "description": "Data exibida pelo dashboard. Se divergir do dia atual em São Paulo, retorna 409 day_changed sem gravar. Ausente: usa o dia atual do servidor."
+          }
+        ],
+        "description": "Sem corpo, conclui daily_target. Com corpo, substitui a quantidade absoluta de hoje. Valores abaixo da meta são progresso parcial e não geram XP. Concluir concede 10 XP e 50 XP ao atingir a meta semanal. Reduzir abaixo da meta reverte a conclusão, XP diário e bônus semanal quando aplicável, recalculando conquistas. Repetições são idempotentes. Datas calculadas pela API em São Paulo.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "quantity": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000000
+                  }
+                },
+                "required": [
+                  "quantity"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Desfazer a realização e zerar o progresso de hoje",
+        "operationId": "delete_habits_habit_id_checkins_today",
+        "responses": {
+          "404": {
+            "description": "Hábito não encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "error.code = habit_archived ou day_changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Banco indisponível; error.code = database_unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Erro inesperado; mensagem genérica, detalhes apenas no log local.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Progresso atualizado ou conclusão já existente; nenhuma nova conclusão criada.",
             "content": {
               "application/json": {
                 "schema": {
@@ -545,7 +746,7 @@
             "description": "Data exibida pelo dashboard. Se divergir do dia atual em São Paulo, retorna 409 day_changed sem gravar. Ausente: usa o dia atual do servidor."
           }
         ],
-        "description": "Sem corpo. Dia calculado pela API. 10 XP por registro e 50 XP adicionais ao cumprir a meta semanal pela primeira vez. Repetir no mesmo dia retorna 200, created=false e awarded_xp=0."
+        "description": "Idempotente. Remove a conclusão de hoje, zera a quantidade e recalcula XP e conquistas na mesma transação. Não remove dias anteriores. Rejeita hábito arquivado e data desatualizada."
       }
     },
     "/habits/{habit_id}/checkins": {
@@ -766,6 +967,41 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 7
+          },
+          "scheduled_days": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 7
+            },
+            "uniqueItems": true,
+            "maxItems": 7,
+            "default": [],
+            "description": "Dias ISO; [] representa frequência flexível. Quando preenchido, deve conter pelo menos weekly_target dias. Não proíbe concluir em outros dias."
+          },
+          "reminder_time": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
+            "default": null,
+            "description": "Horário local HH:mm em America/Sao_Paulo; null desativa o lembrete."
+          },
+          "daily_target": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000,
+            "default": 1,
+            "description": "Meta diária por quantidade, imutável após a criação."
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 24,
+            "default": "vez",
+            "description": "Unidade de medida, imutável após a criação."
           }
         },
         "required": [
@@ -809,6 +1045,27 @@
               "rose"
             ],
             "default": "violet"
+          },
+          "scheduled_days": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 7
+            },
+            "uniqueItems": true,
+            "maxItems": 7,
+            "default": [],
+            "description": "Dias ISO; [] representa frequência flexível. Quando preenchido, deve conter pelo menos weekly_target dias. Não proíbe concluir em outros dias."
+          },
+          "reminder_time": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
+            "default": null,
+            "description": "Horário local HH:mm em America/Sao_Paulo; null desativa o lembrete."
           }
         },
         "required": [],
@@ -935,6 +1192,49 @@
             },
             "maxItems": 8,
             "description": "Até oito semanas recentes em ordem cronológica, incluindo semanas vazias e parciais; termina na semana de arquivamento."
+          },
+          "scheduled_days": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 7
+            },
+            "uniqueItems": true,
+            "maxItems": 7,
+            "default": [],
+            "description": "Dias ISO; [] representa frequência flexível. Quando preenchido, deve conter pelo menos weekly_target dias. Não proíbe concluir em outros dias."
+          },
+          "reminder_time": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^(?:[01]\\d|2[0-3]):[0-5]\\d$",
+            "default": null,
+            "description": "Horário local HH:mm em America/Sao_Paulo; null desativa o lembrete."
+          },
+          "daily_target": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1000000,
+            "default": 1,
+            "description": "Meta diária por quantidade, imutável após a criação."
+          },
+          "unit": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 24,
+            "default": "vez",
+            "description": "Unidade de medida, imutável após a criação."
+          },
+          "today_quantity": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "scheduled_today": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -951,7 +1251,13 @@
           "week_days",
           "streak",
           "adherence",
-          "weekly_history"
+          "weekly_history",
+          "scheduled_days",
+          "reminder_time",
+          "daily_target",
+          "unit",
+          "today_quantity",
+          "scheduled_today"
         ],
         "additionalProperties": false
       },
@@ -1050,10 +1356,13 @@
           "awarded_xp": {
             "type": "integer",
             "enum": [
+              -60,
+              -10,
               0,
               10,
               60
-            ]
+            ],
+            "description": "Variação líquida de XP da operação. Negativa ao desfazer."
           },
           "progress": {
             "type": "object",
@@ -1088,13 +1397,23 @@
               "level"
             ],
             "additionalProperties": false
+          },
+          "today_quantity": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 1000000000
+          },
+          "completed_today": {
+            "type": "boolean"
           }
         },
         "required": [
           "checkin",
           "created",
           "awarded_xp",
-          "progress"
+          "progress",
+          "today_quantity",
+          "completed_today"
         ],
         "additionalProperties": false
       },
@@ -1130,6 +1449,17 @@
           "level": {
             "type": "integer",
             "minimum": 1
+          },
+          "avatar": {
+            "type": "string",
+            "enum": [
+              "compass",
+              "leaf",
+              "flame"
+            ]
+          },
+          "weekly_summary": {
+            "$ref": "#/components/schemas/WeeklySummary"
           }
         },
         "required": [
@@ -1138,7 +1468,9 @@
           "habits",
           "achievements",
           "total_xp",
-          "level"
+          "level",
+          "avatar",
+          "weekly_summary"
         ],
         "additionalProperties": false
       },
@@ -1152,11 +1484,20 @@
           "timezone": {
             "type": "string",
             "const": "America/Sao_Paulo"
+          },
+          "avatar": {
+            "type": "string",
+            "enum": [
+              "compass",
+              "leaf",
+              "flame"
+            ]
           }
         },
         "required": [
           "display_name",
-          "timezone"
+          "timezone",
+          "avatar"
         ],
         "additionalProperties": false
       },
@@ -1203,6 +1544,56 @@
           "error"
         ],
         "additionalProperties": false
+      },
+      "WeeklySummary": {
+        "type": "object",
+        "properties": {
+          "current_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "previous_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "delta": {
+            "type": "integer"
+          },
+          "current_start": {
+            "type": "string",
+            "format": "date"
+          },
+          "current_end": {
+            "type": "string",
+            "format": "date"
+          },
+          "previous_start": {
+            "type": "string",
+            "format": "date"
+          },
+          "previous_end": {
+            "type": "string",
+            "format": "date"
+          },
+          "best_habit_name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "current_count",
+          "previous_count",
+          "delta",
+          "current_start",
+          "current_end",
+          "previous_start",
+          "previous_end",
+          "best_habit_name"
+        ],
+        "additionalProperties": false,
+        "description": "Realizações completas entre segunda e hoje, comparadas aos mesmos dias da semana anterior. Inclui histórico de hábitos arquivados. Empates no destaque usam o hábito mais antigo."
       }
     }
   },

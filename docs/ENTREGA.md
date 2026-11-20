@@ -1,5 +1,24 @@
 # HabitQuest — execução do planejamento
 
+## Atualização de produto — 20/11/2026
+
+O usuário informou que concluiu a validação manual da versão anterior no Chrome. A ocorrência histórica de tela em branco abaixo não é mais tratada como bloqueio dessa versão. A validação manual da nova versão no Chrome e Android será feita pelo usuário; os registros antigos de build/execução não comprovam as novas funcionalidades.
+
+A atualização adiciona a logo aprovada e ícones derivados, dias programados, lembretes por hábito, metas diárias por quantidade, correção/remoção do registro de hoje, resumo semanal comparável e seleção de avatar com títulos por nível. Hábitos prontos e modo offline foram excluídos por solicitação. As regras atuais e limitações de notificação estão no README; o contrato atual está em openapi.json. As seções abaixo registram a entrega anterior e devem ser lidas como histórico quando houver diferença de escopo.
+
+As alterações de schema são aditivas, preservando hábitos, realizações, conquistas e XP. Testes novos cobrem migração e reabertura, progresso parcial, undo, idempotência, concorrência, bônus/conquistas, calendário de lembretes e os novos fluxos Flutter.
+
+| Verificação desta atualização | Resultado |
+| --- | --- |
+| API e contrato OpenAPI, com banco temporário | 61 testes passaram |
+| Flutter: BLoC, repositório, widgets e planejamento de lembretes | 23 testes passaram |
+| Integração Windows com API/SQLite reais | 1 teste passou: criar meta de 20 minutos, concluir, repetir sem duplicar XP, desfazer, registrar 10 minutos sem XP, concluir novamente e reiniciar preservando dados/XP |
+| Análise estática e formatação Dart | Sem problemas; arquivos formatados |
+| Builds Windows release e Web release | Geradas com o plugin e assets novos; Web mantém aviso de fonte Cupertino ausente já registrado anteriormente |
+| Revisão e whitespace | Revisão independente levou à proteção da data original de diálogos e aviso de reversão de XP; `git diff --check` sem erros |
+
+As notificações entregues pelo sistema e as permissões reais ainda exigem conferência no dispositivo. Os testes de widgets usam o registrador Dart do plugin com canal nativo simulado; os testes de planejamento verificam dias, horários, fuso, supressão de hoje e virada de ano. As limitações de janela de 30 dias/400 alarmes Android e entrega com app aberto no Windows/Web estão visíveis na interface e no README. O banco pessoal não foi usado pelos testes.
+
 Este registro compara o MVP de [PLANEJAMENTO.md](PLANEJAMENTO.md) com a implementação e suas verificações. O planejamento original é mantido como histórico. O [README](../README.md) contém os comandos atuais e [APRESENTACAO.md](APRESENTACAO.md), o roteiro de defesa.
 
 ## Escopo entregue

@@ -10,6 +10,35 @@ import 'package:http/testing.dart';
 import 'fixtures.dart';
 
 void main() {
+  test(
+    'diálogo preserva data original após atualização e avisa reversão de XP',
+    () async {
+      final writes = <String>[];
+      final client = MockClient((request) async {
+        if (request.method == 'PUT' || request.method == 'DELETE') {
+          writes.add('${request.method}:${request.headers['x-habit-date']}');
+          return http.Response('{"awarded_xp":-60}', 200);
+        }
+        return http.Response(
+          jsonEncode({...dashboardFixture(), 'local_date': '2026-11-20'}),
+          200,
+        );
+      });
+      addTearDown(client.close);
+      final bloc = HabitsBloc(
+        HabitRepository('http://localhost', client: client),
+      );
+      addTearDown(bloc.close);
+      await bloc.add(const HabitsRequested());
+      await bloc.add(
+        const HabitCheckInRequested(1, quantity: 0, expectedDate: '2026-11-19'),
+      );
+      expect(bloc.state.notice, contains('Progresso corrigido'));
+      await bloc.add(const HabitUndoRequested(1, expectedDate: '2026-11-19'));
+      expect(writes, ['PUT:2026-11-19', 'DELETE:2026-11-19']);
+    },
+  );
+
   test('duplo toque pendente envia um PUT e confirma XP uma vez', () async {
     final response = Completer<http.Response>();
     var puts = 0;

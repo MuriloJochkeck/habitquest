@@ -17,6 +17,14 @@ class Habit {
       streak = data['streak'] as int,
       adherence = (data['adherence'] as num?)?.toDouble(),
       completed = data['completed_today'] as bool,
+      scheduledDays = List<int>.from(data['scheduled_days'] as List? ?? []),
+      reminderTime = data['reminder_time'] as String?,
+      dailyTarget = data['daily_target'] as int? ?? 1,
+      unit = data['unit'] as String? ?? 'vez',
+      todayQuantity =
+          data['today_quantity'] as int? ??
+          (data['completed_today'] == true ? 1 : 0),
+      scheduledToday = data['scheduled_today'] as bool? ?? true,
       archived = data['archived_at'] != null,
       weeklyHistory = (data['weekly_history'] as List? ?? [])
           .cast<Json>()
@@ -27,6 +35,11 @@ class Habit {
   final int id, target, count, streak;
   final String name, description, icon, color;
   final bool completed, archived;
+  final List<int> scheduledDays;
+  final String? reminderTime;
+  final int dailyTarget, todayQuantity;
+  final String unit;
+  final bool scheduledToday;
   final double? adherence;
   final List<String> weekDays;
   final List<WeeklyProgress> weeklyHistory;
@@ -62,6 +75,10 @@ class Dashboard {
       weekStart = DateTime.parse(data['week_start'] as String),
       xp = data['total_xp'] as int,
       level = data['level'] as int,
+      avatar = data['avatar'] as String? ?? 'compass',
+      weeklySummary = data['weekly_summary'] == null
+          ? null
+          : WeeklySummary.fromJson(data['weekly_summary'] as Json),
       habits = (data['habits'] as List)
           .cast<Json>()
           .map(Habit.fromJson)
@@ -74,8 +91,25 @@ class Dashboard {
   final String date;
   final DateTime weekStart;
   final int xp, level;
+  final String avatar;
+  final WeeklySummary? weeklySummary;
   final List<Habit> habits;
   final List<Achievement> achievements;
+}
+
+class WeeklySummary {
+  WeeklySummary.fromJson(Json data)
+    : current = data['current_count'] as int,
+      previous = data['previous_count'] as int,
+      delta = data['delta'] as int,
+      currentStart = data['current_start'] as String,
+      currentEnd = data['current_end'] as String,
+      previousStart = data['previous_start'] as String,
+      previousEnd = data['previous_end'] as String,
+      bestHabit = data['best_habit_name'] as String?;
+  final int current, previous, delta;
+  final String currentStart, currentEnd, previousStart, previousEnd;
+  final String? bestHabit;
 }
 
 class ApiFailure implements Exception {
@@ -183,12 +217,19 @@ class HabitRepository {
   Future<void> archive(int id) =>
       _request('POST', '/habits/$id/archive', (_) {});
 
-  Future<int> checkInToday(int id, String date) => _request(
+  Future<int> checkInToday(int id, String date, {int? quantity}) => _request(
     'PUT',
     '/habits/$id/checkins/today',
     (data) => (data as Json)['awarded_xp'] as int,
     date: date,
+    body: quantity == null ? null : {'quantity': quantity},
   );
+
+  Future<void> undoToday(int id, String date) =>
+      _request('DELETE', '/habits/$id/checkins/today', (_) {}, date: date);
+
+  Future<void> selectAvatar(String avatar) =>
+      _request('PATCH', '/profile', (_) {}, body: {'avatar': avatar});
 
   void close() {
     if (_ownsClient) _client.close();

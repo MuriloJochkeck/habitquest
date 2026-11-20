@@ -1,4 +1,5 @@
 from collections import Counter
+import json
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -42,6 +43,7 @@ def streak(days, today):
 
 def habit_summary(db, habit, today):
     habit = dict(habit)
+    habit['scheduled_days'] = json.loads(habit['scheduled_days'])
     days = checkin_days(db, habit["id"])
     weekly = Counter(week_start(day) for day in days)
     start = week_start(today)
@@ -71,7 +73,13 @@ def habit_summary(db, habit, today):
         streak=0 if archived else streak(days, today),
         adherence=attended / (complete_weeks * target) if complete_weeks else None,
         weekly_history=history,
+        scheduled_today=not habit['scheduled_days'] or today.isoweekday() in habit['scheduled_days'],
     )
+    quantity = db.execute(
+        'SELECT quantity FROM daily_progress WHERE habit_id=? AND local_date=?',
+        (habit['id'], today.isoformat()),
+    ).fetchone()
+    habit['today_quantity'] = quantity['quantity'] if quantity else (habit['daily_target'] if today in days else 0)
     return habit
 
 
@@ -134,4 +142,84 @@ def record_checkin(db, habit, today, now):
             "weekly_count": count, "weekly_target": habit["weekly_target"],
             "weekly_goal_met": count >= habit["weekly_target"], **score(db),
         },
+    }
+
+
+def refresh_achievements(db, habit):
+    """Revoke only achievements no longer supported by any completed history."""
+    days = checkin_days(db, habit['id'])
+    weekly = Counter(week_start(day) for day in days)
+    longest = run = 0
+    previous = None
+    for day in sorted(days):
+        run = run + 1 if previous is not None and day - previous == DAY else 1
+        longest = max(longest, run)
+        previous = day
+    qualified = {
+        'first_checkin': bool(days),
+        'first_weekly_goal': any(count >= habit['weekly_target'] for count in weekly.values()),
+        'streak_7': longest >= 7,
+        'streak_30': longest >= 30,
+    }
+    for code, valid in qualified.items():
+        if not valid:
+            db.execute('DELETE FROM achievements WHERE habit_id=? AND code=?', (habit['id'], code))
+
+
+def set_today_quantity(db, habit, today, now, quantity):
+    """Absolute, repeatable progress update; caller owns the write transaction."""
+    before = score(db)['total_xp']
+    key = (habit['id'], today.isoformat())
+    db.execute(
+        '''INSERT INTO daily_progress VALUES (?, ?, ?, ?)
+        ON CONFLICT(habit_id, local_date) DO UPDATE SET quantity=excluded.quantity, updated_at=excluded.updated_at''',
+        (*key, quantity, now),
+    )
+    if quantity >= habit['daily_target']:
+        result = record_checkin(db, habit, today, now)
+    else:
+        db.execute('DELETE FROM checkins WHERE habit_id=? AND local_date=?', key)
+        db.execute("DELETE FROM reward_events WHERE habit_id=? AND kind='daily' AND period_key=?", key)
+        start = week_start(today)
+        count = sum(start <= day < start + timedelta(days=7) for day in checkin_days(db, habit['id']))
+        if count < habit['weekly_target']:
+            db.execute(
+                "DELETE FROM reward_events WHERE habit_id=? AND kind='weekly' AND period_key=?",
+                (habit['id'], start.isoformat()),
+            )
+        refresh_achievements(db, habit)
+        result = {
+            'checkin': {'habit_id': habit['id'], 'local_date': today.isoformat()},
+            'created': False, 'awarded_xp': score(db)['total_xp'] - before,
+            'progress': {
+                'weekly_count': count, 'weekly_target': habit['weekly_target'],
+                'weekly_goal_met': count >= habit['weekly_target'], **score(db),
+            },
+        }
+    result.update(today_quantity=quantity, completed_today=quantity >= habit['daily_target'])
+    return result
+
+
+def weekly_summary(db, today):
+    """Compare elapsed days of this week with the same weekdays last week."""
+    start = week_start(today)
+    previous_start, previous_end = start - timedelta(weeks=1), today - timedelta(weeks=1)
+    current = db.execute(
+        'SELECT COUNT(*) FROM checkins WHERE local_date BETWEEN ? AND ?',
+        (start.isoformat(), today.isoformat()),
+    ).fetchone()[0]
+    previous = db.execute(
+        'SELECT COUNT(*) FROM checkins WHERE local_date BETWEEN ? AND ?',
+        (previous_start.isoformat(), previous_end.isoformat()),
+    ).fetchone()[0]
+    best = db.execute(
+        '''SELECT h.name, COUNT(*) AS total FROM checkins c JOIN habits h ON h.id=c.habit_id
+        WHERE c.local_date BETWEEN ? AND ? GROUP BY h.id ORDER BY total DESC, h.id ASC LIMIT 1''',
+        (start.isoformat(), today.isoformat()),
+    ).fetchone()
+    return {
+        'current_count': current, 'previous_count': previous, 'delta': current - previous,
+        'current_start': start.isoformat(), 'current_end': today.isoformat(),
+        'previous_start': previous_start.isoformat(), 'previous_end': previous_end.isoformat(),
+        'best_habit_name': best['name'] if best else None,
     }

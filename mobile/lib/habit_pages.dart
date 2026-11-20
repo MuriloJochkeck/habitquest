@@ -83,7 +83,7 @@ class QuestBanner extends StatelessWidget {
           ),
           const SizedBox(height: 18),
           Text(
-            '$completed de ${data.habits.length} missões feitas hoje',
+            '$completed de ${data.habits.where((habit) => habit.scheduledToday).length} missões feitas hoje',
             style: const TextStyle(color: Colors.white),
           ),
           const SizedBox(height: 12),
@@ -120,10 +120,13 @@ class HabitCard extends StatelessWidget {
     required this.onOpen,
     this.onCheck,
     this.pending = false,
+    this.onUndo,
+    this.onQuantity,
   });
   final Habit habit;
   final DateTime weekStart;
   final VoidCallback? onOpen, onCheck;
+  final VoidCallback? onUndo, onQuantity;
   final bool pending;
 
   @override
@@ -177,6 +180,36 @@ class HabitCard extends StatelessWidget {
                   ),
               ],
             ),
+            if (habit.reminderTime != null || habit.scheduledDays.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(
+                  [
+                    if (habit.scheduledDays.isNotEmpty)
+                      habit.scheduledDays
+                          .map((day) => weekdays[day - 1])
+                          .join(' · '),
+                    if (habit.reminderTime != null)
+                      'Lembrete ${habit.reminderTime}',
+                  ].join('  •  '),
+                ),
+              ),
+            if (habit.dailyTarget > 1) ...[
+              const SizedBox(height: 12),
+              Text(
+                '${habit.todayQuantity} de ${habit.dailyTarget} ${habit.unit} hoje',
+              ),
+              const SizedBox(height: 6),
+              LinearProgressIndicator(
+                value: (habit.todayQuantity / habit.dailyTarget).clamp(0, 1),
+              ),
+              if (onQuantity != null)
+                OutlinedButton.icon(
+                  onPressed: pending ? null : onQuantity,
+                  icon: const Icon(Icons.edit_outlined),
+                  label: const Text('Registrar quantidade'),
+                ),
+            ],
             if (habit.completed || pending || onCheck != null) ...[
               const SizedBox(height: 10),
               FilledButton.icon(
@@ -193,6 +226,12 @@ class HabitCard extends StatelessWidget {
                 ),
               ),
             ],
+            if (onUndo != null && (habit.completed || habit.todayQuantity > 0))
+              TextButton.icon(
+                onPressed: pending ? null : onUndo,
+                icon: const Icon(Icons.undo_rounded),
+                label: const Text('Desfazer registro de hoje'),
+              ),
           ],
         ),
       ),
@@ -251,6 +290,12 @@ class _HabitFormState extends State<HabitForm> {
   late int _target = widget.habit?.target ?? 3;
   late String _icon = widget.habit?.icon ?? 'spark';
   late String _color = widget.habit?.color ?? 'violet';
+  late final _quantity = TextEditingController(
+    text: '${widget.habit?.dailyTarget ?? 1}',
+  );
+  late final _unit = TextEditingController(text: widget.habit?.unit ?? 'vez');
+  late final Set<int> _days = {...?widget.habit?.scheduledDays};
+  late String? _reminder = widget.habit?.reminderTime;
   bool _saving = false;
   bool _confirmationUnknown = false;
   String? _error;
@@ -259,11 +304,20 @@ class _HabitFormState extends State<HabitForm> {
   void dispose() {
     _name.dispose();
     _description.dispose();
+    _quantity.dispose();
+    _unit.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
     if (!_form.currentState!.validate()) return;
+    if (_days.isNotEmpty && _days.length < _target) {
+      setState(
+        () => _error =
+            'Selecione pelo menos $_target dias para atender à meta semanal.',
+      );
+      return;
+    }
     setState(() {
       _saving = true;
       _error = null;
@@ -274,6 +328,10 @@ class _HabitFormState extends State<HabitForm> {
       'icon': _icon,
       'color': _color,
       if (widget.habit == null) 'weekly_target': _target,
+      'scheduled_days': _days.toList()..sort(),
+      'reminder_time': _reminder,
+      if (widget.habit == null) 'daily_target': int.parse(_quantity.text),
+      if (widget.habit == null) 'unit': _unit.text.trim(),
     }, id: widget.habit?.id);
     unawaited(widget.bloc.add(event));
     final result = await event.result.future;
@@ -343,9 +401,109 @@ class _HabitFormState extends State<HabitForm> {
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   child: Text(
                     'A meta integral vale desde a criação. A meta não pode ser alterada: para outra meta, arquive o hábito e crie outro. '
-                    'Você pode registrar somente hoje, uma vez por dia. Não é possível registrar dias anteriores nem remover realizações.',
+                    'Os registros são de hoje. Você pode corrigir quantidades e desfazer o registro do dia; XP e conquistas acompanham a alteração.',
                   ),
                 ),
+                const Text(
+                  'Dias programados',
+                  style: TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const Text(
+                  'Sem seleção: rotina flexível. Você também pode realizar fora dos dias programados.',
+                ),
+                Wrap(
+                  spacing: 6,
+                  children: [
+                    for (var day = 1; day <= 7; day++)
+                      FilterChip(
+                        label: Text(weekdays[day - 1]),
+                        selected: _days.contains(day),
+                        onSelected: _saving
+                            ? null
+                            : (selected) => setState(() {
+                                if (selected) {
+                                  _days.add(day);
+                                } else {
+                                  _days.remove(day);
+                                }
+                              }),
+                      ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _quantity,
+                  enabled: widget.habit == null && !_saving,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Quantidade para concluir o dia',
+                    helperText: 'Ex.: 20 minutos ou 8 copos. Use 1 para uma conclusão simples.',
+                  ),
+                  validator: (value) {
+                    final amount = int.tryParse(value ?? '');
+                    return amount == null || amount < 1 || amount > 1000000
+                        ? 'Informe um inteiro de 1 a 1000000.'
+                        : null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _unit,
+                  maxLength: 24,
+                  enabled: widget.habit == null && !_saving,
+                  decoration: const InputDecoration(
+                    labelText: 'Unidade (vez, minutos, copos…)',
+                  ),
+                  validator: (value) => (value ?? '').trim().isEmpty
+                      ? 'Informe a unidade.'
+                      : null,
+                ),
+                if (widget.habit != null)
+                  const Text(
+                    'A quantidade e a unidade são preservadas para manter o histórico comparável.',
+                  ),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.notifications_active_outlined),
+                  title: Text(
+                    _reminder == null
+                        ? 'Sem lembrete'
+                        : 'Lembrar às $_reminder',
+                  ),
+                  subtitle: const Text(
+                    'Horário de São Paulo. Ative as notificações na tela inicial.',
+                  ),
+                  trailing: _reminder == null
+                      ? null
+                      : IconButton(
+                          tooltip: 'Remover lembrete',
+                          onPressed: _saving
+                              ? null
+                              : () => setState(() => _reminder = null),
+                          icon: const Icon(Icons.close),
+                        ),
+                  onTap: _saving
+                      ? null
+                      : () async {
+                          final parts = _reminder?.split(':');
+                          final time = await showTimePicker(
+                            context: context,
+                            initialTime: parts == null
+                                ? const TimeOfDay(hour: 20, minute: 0)
+                                : TimeOfDay(
+                                    hour: int.parse(parts[0]),
+                                    minute: int.parse(parts[1]),
+                                  ),
+                          );
+                          if (time != null && mounted) {
+                            setState(
+                              () => _reminder =
+                                  '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}',
+                            );
+                          }
+                        },
+                ),
+                const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: _icon,
                   decoration: const InputDecoration(labelText: 'Ícone'),

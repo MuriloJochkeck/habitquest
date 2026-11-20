@@ -1,12 +1,15 @@
 from datetime import UTC, date, timedelta
+import json
+import re
 
 from flask import Blueprint, current_app, jsonify, request, url_for
 
 from .db import connection, transaction
-from .progress import COLORS, ICONS, ZONE, badges, habit_summary, record_checkin, score, week_start
+from .progress import COLORS, ICONS, ZONE, badges, habit_summary, score, set_today_quantity, week_start, weekly_summary
 
 api = Blueprint("api", __name__)
-FIELDS = ("name", "description", "icon", "color", "weekly_target")
+FIELDS = ("name", "description", "icon", "color", "weekly_target", "scheduled_days", "reminder_time", "daily_target", "unit")
+EDIT_FIELDS = ("name", "description", "icon", "color", "scheduled_days", "reminder_time")
 
 
 def error(code, message, status, fields=None):
@@ -34,9 +37,14 @@ def not_found():
 def validate(payload, *, existing=None):
     if not isinstance(payload, dict):
         return None, {"body": "Envie um objeto JSON."}
-    allowed = FIELDS[:-1] if existing else FIELDS
+    allowed = EDIT_FIELDS if existing else FIELDS
     errors = {key: "Campo não permitido." for key in payload.keys() - set(allowed)}
-    values = dict(existing) if existing else {"description": "", "icon": "spark", "color": "violet"}
+    values = dict(existing) if existing else {
+        "description": "", "icon": "spark", "color": "violet", "scheduled_days": [],
+        "reminder_time": None, "daily_target": 1, "unit": "vez",
+    }
+    if existing:
+        values['scheduled_days'] = json.loads(values['scheduled_days'])
     values.update({key: value.strip() if isinstance(value, str) else value
                    for key, value in payload.items() if key in allowed})
     for field, limit in (("name", 80), ("description", 280)):
@@ -50,7 +58,25 @@ def validate(payload, *, existing=None):
     target = values.get("weekly_target")
     if type(target) is not int or not 1 <= target <= 7:
         errors["weekly_target"] = "Informe um inteiro de 1 a 7."
+    days = values.get('scheduled_days')
+    if not isinstance(days, list) or any(type(day) is not int or not 1 <= day <= 7 for day in days) or len(days) != len(set(days)):
+        errors['scheduled_days'] = 'Escolha dias distintos de segunda (1) a domingo (7).'
+    elif days and type(target) is int and len(days) < target:
+        errors['scheduled_days'] = 'Escolha pelo menos tantos dias quanto a meta semanal.'
+    reminder = values.get('reminder_time')
+    if reminder is not None and (not isinstance(reminder, str) or not re.fullmatch(r'(?:[01]\d|2[0-3]):[0-5]\d', reminder)):
+        errors['reminder_time'] = 'Informe o horário no formato HH:mm.'
+    daily = values.get('daily_target')
+    if type(daily) is not int or not 1 <= daily <= 1000000:
+        errors['daily_target'] = 'Informe uma meta diária inteira de 1 a 1000000.'
+    unit = values.get('unit')
+    if not isinstance(unit, str) or not 1 <= len(unit) <= 24:
+        errors['unit'] = 'Informe uma unidade de 1 a 24 caracteres.'
     return values, errors
+
+
+def persisted_values(values, fields):
+    return [json.dumps(values[field]) if field == 'scheduled_days' else values[field] for field in fields]
 
 
 @api.get("/health")
@@ -61,7 +87,19 @@ def health():
 
 @api.get("/profile")
 def profile():
-    return jsonify(display_name="Explorador", timezone=ZONE.key)
+    avatar = connection().execute('SELECT avatar FROM profile WHERE id=1').fetchone()['avatar']
+    return jsonify(display_name="Explorador", timezone=ZONE.key, avatar=avatar)
+
+
+@api.patch('/profile')
+def edit_profile():
+    payload = request.get_json()
+    if not isinstance(payload, dict) or set(payload) != {'avatar'} or payload.get('avatar') not in ('compass', 'leaf', 'flame'):
+        return error('validation_error', 'Escolha um avatar disponível.', 422)
+    db = connection()
+    with transaction(db, write=True):
+        db.execute('UPDATE profile SET avatar=? WHERE id=1', (payload['avatar'],))
+    return profile()
 
 
 @api.get("/habits")
@@ -88,8 +126,8 @@ def create_habit():
     with transaction(db, write=True):
         today, now = clock()
         result = db.execute(
-            """INSERT INTO habits (name, description, icon, color, weekly_target, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)""", (*[values[field] for field in FIELDS], now),
+            """INSERT INTO habits (name, description, icon, color, weekly_target, scheduled_days, reminder_time, daily_target, unit, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""", (*persisted_values(values, FIELDS), now),
         )
         habit_id = result.lastrowid
         body = habit_summary(db, habit_by_id(db, habit_id), today)
@@ -117,8 +155,8 @@ def edit_habit(habit_id):
         if errors:
             return error("validation_error", "Revise os campos informados.", 422, errors)
         db.execute(
-            "UPDATE habits SET name=?, description=?, icon=?, color=? WHERE id=?",
-            (*[values[field] for field in FIELDS[:-1]], habit_id),
+            "UPDATE habits SET name=?, description=?, icon=?, color=?, scheduled_days=?, reminder_time=? WHERE id=?",
+            (*persisted_values(values, EDIT_FIELDS), habit_id),
         )
         today, _ = clock()
         return jsonify(habit_summary(db, habit_by_id(db, habit_id), today))
@@ -136,6 +174,7 @@ def archive_habit(habit_id):
 
 
 @api.put("/habits/<int:habit_id>/checkins/today")
+@api.delete("/habits/<int:habit_id>/checkins/today")
 def checkin_today(habit_id):
     db = connection()
     with transaction(db, write=True):
@@ -148,7 +187,13 @@ def checkin_today(habit_id):
         expected_day = request.headers.get("X-Habit-Date")
         if expected_day is not None and expected_day != today.isoformat():
             return error("day_changed", "O dia mudou. Atualize a lista antes de concluir.", 409)
-        outcome = record_checkin(db, habit, today, now)
+        quantity = 0 if request.method == 'DELETE' else habit['daily_target']
+        if request.method == 'PUT' and request.content_length:
+            payload = request.get_json()
+            if not isinstance(payload, dict) or set(payload) != {'quantity'} or type(payload.get('quantity')) is not int or not 0 <= payload['quantity'] <= 1000000000:
+                return error('validation_error', 'Informe uma quantidade inteira entre 0 e 1000000000.', 422)
+            quantity = payload['quantity']
+        outcome = set_today_quantity(db, habit, today, now, quantity)
     return jsonify(outcome), 201 if outcome["created"] else 200
 
 
@@ -183,6 +228,8 @@ def dashboard():
             local_date=today.isoformat(), week_start=week_start(today).isoformat(),
             habits=[habit_summary(db, habit, today) for habit in habits],
             achievements=badges(db), **score(db),
+            weekly_summary=weekly_summary(db, today),
+            avatar=db.execute('SELECT avatar FROM profile WHERE id=1').fetchone()['avatar'],
         )
 
 

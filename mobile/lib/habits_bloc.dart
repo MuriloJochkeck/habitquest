@@ -11,8 +11,21 @@ class HabitsRequested extends HabitsEvent {
 }
 
 class HabitCheckInRequested extends HabitsEvent {
-  const HabitCheckInRequested(this.id);
+  const HabitCheckInRequested(this.id, {this.quantity, this.expectedDate});
   final int id;
+  final int? quantity;
+  final String? expectedDate;
+}
+
+class HabitUndoRequested extends HabitsEvent {
+  const HabitUndoRequested(this.id, {this.expectedDate});
+  final int id;
+  final String? expectedDate;
+}
+
+class AvatarSelected extends HabitsEvent {
+  const AvatarSelected(this.avatar);
+  final String avatar;
 }
 
 class HabitSaveRequested extends HabitsEvent {
@@ -77,7 +90,11 @@ class HabitsBloc {
       HabitsState(
         dashboard: previous,
         busy: true,
-        pendingId: event is HabitCheckInRequested ? event.id : null,
+        pendingId: switch (event) {
+          HabitCheckInRequested(:final id) => id,
+          HabitUndoRequested(:final id) => id,
+          _ => null,
+        },
       ),
     );
     int? reward;
@@ -87,10 +104,30 @@ class HabitsBloc {
       switch (event) {
         case HabitsRequested():
           break;
-        case HabitCheckInRequested(:final id):
+        case HabitCheckInRequested(
+          :final id,
+          :final quantity,
+          :final expectedDate,
+        ):
           if (previous != null) {
-            reward = await repository.checkInToday(id, previous.date);
+            reward = await repository.checkInToday(
+              id,
+              expectedDate ?? previous.date,
+              quantity: quantity,
+            );
+            if (reward == 0) notice = 'Progresso de hoje salvo.';
+            if (reward < 0) {
+              notice = 'Progresso corrigido. XP e conquistas atualizados.';
+            }
           }
+        case HabitUndoRequested(:final id, :final expectedDate):
+          if (previous != null) {
+            await repository.undoToday(id, expectedDate ?? previous.date);
+            notice = 'Registro de hoje desfeito. XP e conquistas atualizados.';
+          }
+        case AvatarSelected(:final avatar):
+          await repository.selectAvatar(avatar);
+          notice = 'Avatar atualizado.';
         case HabitSaveRequested(:final id, :final fields):
           await repository.save(fields, id: id);
           notice = id == null ? 'Hábito criado!' : 'Alterações salvas.';
