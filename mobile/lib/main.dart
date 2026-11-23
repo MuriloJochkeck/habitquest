@@ -133,14 +133,29 @@ class _QuestHomeState extends State<QuestHome> with WidgetsBindingObserver {
   Future<void> _enableReminders() async {
     final error = await _reminders.enable();
     if (!mounted) return;
-    if (error == null && _bloc.state.dashboard != null) {
-      await _syncReminders(_bloc.state.dashboard!);
-    }
-    if (!mounted) return;
+    setState(() => _reminderError = _reminders.error);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(error ?? 'Lembretes ativados. ${_reminders.limitation}'),
+        action: error == null
+            ? SnackBarAction(
+                label: 'Testar notificação',
+                onPressed: _testReminder,
+              )
+            : null,
         duration: const Duration(seconds: 8),
+      ),
+    );
+  }
+
+  Future<void> _testReminder() async {
+    final error = await _reminders.testNotification();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          error ?? 'Teste enviado ao sistema. Se não aparecer na barra de notificações, confira as notificações e o modo Não perturbe do aparelho.',
+        ),
       ),
     );
   }

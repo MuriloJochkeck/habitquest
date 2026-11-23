@@ -74,6 +74,7 @@ class ReminderService {
   Timer? _timer;
   bool _initialized = false;
   bool _enabled = false;
+  bool _exactAlarms = false;
   bool _closed = false;
   Future<void> _pending = Future.value();
   Dashboard? _dashboard;
@@ -87,7 +88,8 @@ class ReminderService {
       kIsWeb || _android || defaultTargetPlatform == TargetPlatform.windows;
   String get limitation => _android
       ? 'Horário de São Paulo. Lembretes agendados para os próximos 30 dias; '
-            'abra o app para renovar. O Android pode atrasar a entrega para economizar bateria.'
+            'abra o app para renovar. '
+            '${_exactAlarms ? 'Horários exatos autorizados no Android.' : 'Sem acesso a Alarmes e lembretes, o Android pode atrasar a entrega. Toque no sino para autorizar.'}'
       : 'Horário de São Paulo. Mantenha ${kIsWeb ? 'esta aba aberta' : 'o app aberto'} '
             'para receber lembretes. Ative as notificações neste dispositivo.';
 
@@ -134,15 +136,20 @@ class ReminderService {
             'Não foi possível iniciar as notificações neste dispositivo.';
       }
       if (_android) {
-        final granted = await _plugin
+        final android = _plugin
             .resolvePlatformSpecificImplementation<
               AndroidFlutterLocalNotificationsPlugin
-            >()
-            ?.requestNotificationsPermission();
+            >();
+        final granted = await android?.requestNotificationsPermission();
         if (granted != true) {
           return error =
               'Notificações bloqueadas. Permita-as nas configurações do Android.';
         }
+        // Only an explicit activation may open Android's special-access screen.
+        if (await android?.canScheduleExactNotifications() != true) {
+          await android?.requestExactAlarmsPermission();
+        }
+        _exactAlarms = await android?.canScheduleExactNotifications() ?? false;
       }
       if (_closed) return null;
       _enabled = true;
@@ -172,20 +179,59 @@ class ReminderService {
     return _pending;
   }
 
+  /// Immediate display test, triggered only by the user.
+  Future<String?> testNotification() async {
+    if (!_enabled || _closed) {
+      return 'Ative os lembretes pelo sino antes de testar.';
+    }
+    try {
+      await _plugin.show(
+        id: 0,
+        title: 'Teste de lembrete',
+        body: 'As notificações do HabitQuest estão funcionando neste aparelho.',
+        notificationDetails: _details,
+      );
+      return null;
+    } on PlatformException {
+      return 'Não foi possível exibir o teste. Confira as notificações do HabitQuest no sistema.';
+    } on MissingPluginException {
+      return 'Reinicie o aplicativo para carregar o serviço de lembretes.';
+    } on UnsupportedError {
+      return 'Este ambiente não oferece suporte a notificações.';
+    } on StateError {
+      return 'Notificações indisponíveis. Ative-as novamente neste dispositivo.';
+    }
+  }
+
   Future<void> _sync(Dashboard dashboard) async {
     if (_closed) return;
     try {
-      if (!_enabled && _android) {
+      if (_android) {
         if (!await _initialize()) return;
-        _enabled =
-            await _plugin
-                .resolvePlatformSpecificImplementation<
-                  AndroidFlutterLocalNotificationsPlugin
-                >()
-                ?.areNotificationsEnabled() ??
-            false;
+        final android = _plugin
+            .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin
+            >();
+        _enabled = await android?.areNotificationsEnabled() ?? false;
         // Cancel stale native deliveries even when permission was revoked.
-        if (!_enabled) await _plugin.cancelAllPendingNotifications();
+        if (!_enabled) {
+          await _plugin.cancelAllPendingNotifications();
+          error = 'Notificações bloqueadas. Permita-as nas configurações do Android e toque no sino.';
+          return;
+        }
+        final channels = await android?.getNotificationChannels();
+        if (channels != null &&
+            channels.any(
+              (channel) =>
+                  channel.id == 'habitquest_reminders' &&
+                  channel.importance == Importance.none,
+            )) {
+          _enabled = false;
+          await _plugin.cancelAllPendingNotifications();
+          error = 'O canal Lembretes de hábitos está bloqueado. Ative-o nas configurações de notificações do HabitQuest no Android.';
+          return;
+        }
+        _exactAlarms = await android?.canScheduleExactNotifications() ?? false;
       }
       if (!_enabled || _closed) return;
       error = null;
@@ -205,7 +251,9 @@ class ReminderService {
             body: delivery.name,
             scheduledDate: delivery.at,
             notificationDetails: _details,
-            androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+            androidScheduleMode: _exactAlarms
+                ? AndroidScheduleMode.exactAllowWhileIdle
+                : AndroidScheduleMode.inexactAllowWhileIdle,
           );
         }
       } else {
